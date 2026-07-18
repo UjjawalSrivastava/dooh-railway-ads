@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOOH Display - Railway Station Screen</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        .display-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+        }
+
+        /* Connection Status */
+        .connection-status {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            z-index: 100;
+            transition: all 0.3s;
+        }
+
+        .connection-status.connecting {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .connection-status.connected {
+            background: #10b981;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #ef4444;
+            color: white;
+        }
+
+        /* Screen ID Badge */
+        .screen-badge {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Clock */
+        .clock {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+
+        /* Video Player */
+        #main-player {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #main-player.active {
+            display: block;
+        }
+
+        /* Default Content */
+        .default-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .default-content.hidden {
+            display: none;
+        }
+
+        .railway-logo {
+            font-size: 8rem;
+            margin-bottom: 2rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .station-name {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .platform-display {
+            font-size: 2.5rem;
+            font-weight: 600;
+            color: #ffd700;
+            margin-bottom: 2rem;
+        }
+
+        .waiting-message {
+            font-size: 1.25rem;
+            opacity: 0.8;
+            margin-top: 1rem;
+        }
+
+        .screen-id {
+            position: absolute;
+            bottom: 2rem;
+            font-size: 1rem;
+            opacity: 0.5;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+            padding: 2.5rem 2rem 1.5rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            z-index: 50;
+        }
+
+        .info-bar.hidden {
+            display: none;
+        }
+
+        .ad-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .live-badge {
+            background: #ef4444;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 0.875rem;
+            animation: blink 1s ease-in-out infinite;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .ad-details {
+            font-size: 1rem;
+        }
+
+        .ad-details .customer {
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        .ad-details .meta {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .station-info {
+            text-align: right;
+        }
+
+        .station-info .name {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .station-info .platform {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        /* Playlist Queue */
+        .playlist-queue {
+            position: absolute;
+            top: 4rem;
+            left: 1rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            max-width: 300px;
+            backdrop-filter: blur(10px);
+            z-index: 50;
+        }
+
+        .playlist-queue.hidden {
+            display: none;
+        }
+
+        .queue-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .queue-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.875rem;
+        }
+
+        .queue-item:last-child {
+            border-bottom: none;
+        }
+
+        .queue-item.current {
+            color: #10b981;
+            font-weight: 600;
+        }
+
+        /* Loading */
+        .loading {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+            color: white;
+            font-size: 1.25rem;
+            z-index: 200;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .loading.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* QR Code */
+        .qr-overlay {
+            position: absolute;
+            bottom: 120px;
+            right: 1rem;
+            background: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            z-index: 50;
+        }
+
+        .qr-code {
+            width: 80px;
+            height: 80px;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .qr-text {
+            font-size: 0.75rem;
+            color: #333;
+            font-weight: 600;
+        }
+
+        /* Error Message */
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(239, 68, 68, 0.9);
+            color: white;
+            padding: 1.5rem 2rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            z-index: 150;
+            display: none;
+        }
+
+        .error-message.visible {
+            display: block;
+        }
+
+        /* Stats Overlay (for debugging) */
+        .stats-overlay {
+            position: absolute;
+            bottom: 120px;
+            left: 1rem;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.75rem;
+            font-family: monospace;
+            z-index: 50;
+            display: none;
+        }
+
+        .stats-overlay.visible {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="display-container">
+        <!-- Loading Screen -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Initializing Display...</div>
+            <div style="font-size: 0.875rem; opacity: 0.7; margin-top: 0.5rem;" id="loading-details">Connecting to server</div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="connection-status connecting" id="connection-status">
+            🟡 Connecting...
+        </div>
+
+        <!-- Screen Badge -->
+        <div class="screen-badge" id="screen-badge">
+            Screen: --
+        </div>
+
+        <!-- Clock -->
+        <div class="clock" id="clock">00:00:00</div>
+
+        <!-- Playlist Queue -->
+        <div class="playlist-queue hidden" id="playlist-queue">
+            <div class="queue-title">Up Next</div>
+            <div id="queue-items"></div>
+        </div>
+
+        <!-- Stats (Debug) -->
+        <div class="stats-overlay" id="stats-overlay">
+            <div>WS: <span id="ws-status">--</span></div>
+            <div>Playlist: <span id="playlist-count">--</span></div>
+            <div>Current: <span id="current-ad">--</span></div>
+        </div>
+
+        <!-- Error Message -->
+        <div class="error-message" id="error-message">
+            <div style="font-size: 1.25rem; margin-bottom: 0.5rem;">⚠️ Connection Error</div>
+            <div id="error-text">Failed to connect to server</div>
+        </div>
+
+        <!-- Video Player -->
+        <video id="main-player" loop playsinline muted></video>
+
+        <!-- Default Content -->
+        <div class="default-content" id="default-content">
+            <div class="railway-logo">🚂</div>
+            <h1 class="station-name" id="station-name-display">Railway Station</h1>
+            <div class="platform-display" id="platform-name-display">Platform --</div>
+            <p class="waiting-message">Waiting for advertisements...</p>
+            <p style="margin-top: 1rem; opacity: 0.6;">Scan QR to book your ad</p>
+            <div class="screen-id" id="screen-id-display">Screen ID: --</div>
+        </div>
+
+        <!-- Info Bar -->
+        <div class="info-bar hidden" id="info-bar">
+            <div class="ad-info">
+                <div class="live-badge">
+                    <span>🔴</span>
+                    <span>LIVE</span>
+                </div>
+                <div class="ad-details">
+                    <div class="customer" id="ad-customer">Advertisement</div>
+                    <div class="meta" id="ad-meta">30 sec loop</div>
+                </div>
+            </div>
+            <div class="station-info">
+                <div class="name" id="station-info-name">Station</div>
+                <div class="platform" id="station-info-platform">Platform --</div>
+            </div>
+        </div>
+
+        <!-- QR Code -->
+        <div class="qr-overlay">
+            <div class="qr-code">📱</div>
+            <div class="qr-text">Book Your Ad</div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const SERVER_IP = window.location.hostname;
+        const SERVER_PORT = window.location.port || '3002';
+        const API_URL = `http://${SERVER_IP}:${SERVER_PORT}/api`;
+        const WS_URL = `ws://${SERVER_IP}:${SERVER_PORT}`;
+
+        // URL Parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const station = urlParams.get('station') || 'Kanpur Central (CNB)';
+        const platform = urlParams.get('platform') || 'Platform 1';
+        const screenId = urlParams.get('screenId') || `${station.substring(0, 3).toUpperCase()}-${platform.replace(' ', '')}`;
+
+        // Update display info
+        document.getElementById('station-name-display').textContent = station;
+        document.getElementById('platform-name-display').textContent = platform;
+        document.getElementById('station-info-name').textContent = station;
+        document.getElementById('station-info-platform').textContent = platform;
+        document.getElementById('screen-id-display').textContent = `Screen ID: ${screenId}`;
+        document.getElementById('screen-badge').textContent = `Screen: ${screenId}`;
+
+        // Elements
+        const player = document.getElementById('main-player');
+        const defaultContent = document.getElementById('default-content');
+        const infoBar = document.getElementById('info-bar');
+        const loading = document.getElementById('loading');
+        const connectionStatus = document.getElementById('connection-status');
+        const playlistQueue = document.getElementById('playlist-queue');
+        const loadingDetails = document.getElementById('loading-details');
+
+        // State
+        let currentPlaylist = [];
+        let currentAdIndex = 0;
+        let isPlaying = false;
+        let ws = null;
+        let useWebSocket = true;
+        let reconnectAttempts = 0;
+        const maxReconnectAttempts = 5;
+
+        // Clock
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-IN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // WebSocket Connection
+        function connectWebSocket() {
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                console.log('Max reconnection attempts reached, using HTTP polling');
+                useWebSocket = false;
+                startHttpPolling();
+                return;
+            }
+
+            reconnectAttempts++;
+            loadingDetails.textContent = `Connecting to server (attempt ${reconnectAttempts})...`;
+
+            ws = new WebSocket(`${WS_URL}?screenId=${screenId}&station=${encodeURIComponent(station)}&platform=${encodeURIComponent(platform)}`);
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                connectionStatus.className = 'connection-status connected';
+                connectionStatus.textContent = '🟢 Connected';
+                loadingDetails.textContent = 'Connected, loading playlist...';
+                reconnectAttempts = 0;
+                useWebSocket = true;
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleWebSocketMessage(message);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                connectionStatus.className = 'connection-status disconnected';
+                connectionStatus.textContent = '🔴 Disconnected';
+
+                // Try to reconnect after 5 seconds
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                useWebSocket = false;
+                startHttpPolling();
+            };
+        }
+
+        function handleWebSocketMessage(message) {
+            switch (message.type) {
+                case 'playlist':
+                    updatePlaylist(message.data);
+                    break;
+                case 'new-booking':
+                    console.log('New booking received:', message.bookingId);
+                    fetchPlaylist();
+                    break;
+            }
+        }
+
+        // HTTP Polling Fallback
+        function startHttpPolling() {
+            console.log('Starting HTTP polling');
+            fetchPlaylist();
+            setInterval(fetchPlaylist, 10000);
+        }
+
+        async function fetchPlaylist() {
+            try {
+                const res = await fetch(`${API_URL}/player/${encodeURIComponent(station)}/${encodeURIComponent(platform)}/playlist`);
+                const data = await res.json();
+                updatePlaylist(data.playlist);
+            } catch (err) {
+                console.error('Failed to fetch playlist:', err);
+                showError('Failed to fetch playlist');
+            }
+        }
+
+        function updatePlaylist(playlist) {
+            currentPlaylist = playlist.filter(item => item.type !== 'filler');
+
+            if (currentPlaylist.length > 0) {
+                updateQueueDisplay();
+                if (!isPlaying) {
+                    playNextAd();
+                }
+            } else {
+                showDefaultContent();
+            }
+        }
+
+        function updateQueueDisplay() {
+            const queueItems = document.getElementById('queue-items');
+
+            if (currentPlaylist.length > 1) {
+                playlistQueue.classList.remove('hidden');
+                queueItems.innerHTML = currentPlaylist.slice(1).map((item, i) => `
+                    <div class="queue-item">${i + 1}. ${item.customerName || 'Advertisement'}</div>
+                `).join('');
+            } else {
+                playlistQueue.classList.add('hidden');
+            }
+
+            // Update stats
+            document.getElementById('playlist-count').textContent = currentPlaylist.length;
+            document.getElementById('current-ad').textContent = currentAdIndex + 1;
+        }
+
+        function playNextAd() {
+            if (currentPlaylist.length === 0) {
+                showDefaultContent();
+                return;
+            }
+
+            const ad = currentPlaylist[currentAdIndex];
+
+            if (ad.videoUrl) {
+                const videoUrl = `http://${SERVER_IP}:${SERVER_PORT}${ad.videoUrl}`;
+
+                // Check if video URL changed
+                if (player.src !== videoUrl) {
+                    player.src = videoUrl;
+                }
+
+                player.classList.add('active');
+                defaultContent.classList.add('hidden');
+                infoBar.classList.remove('hidden');
+                loading.classList.add('hidden');
+
+                document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
+                document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • Loop ${currentAdIndex + 1}/${currentPlaylist.length}`;
+
+                player.play()
+                    .then(() => {
+                        isPlaying = true;
+                        updateQueueDisplay();
+                    })
+                    .catch(err => {
+                        console.error('Playback error:', err);
+                        // Try next ad on error
+                        currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
+                        playNextAd();
+                    });
+
+                // Move to next ad after this one ends
+                player.onended = () => {
+                    currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
+                    playNextAd();
+                };
+            } else {
+                showDefaultContent();
+            }
+        }
+
+        function showDefaultContent() {
+            isPlaying = false;
+            player.classList.remove('active');
+            player.pause();
+            defaultContent.classList.remove('hidden');
+            infoBar.classList.add('hidden');
+            playlistQueue.classList.add('hidden');
+            loading.classList.add('hidden');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error-message');
+            document.getElementById('error-text').textContent = message;
+            errorDiv.classList.add('visible');
+            setTimeout(() => {
+                errorDiv.classList.remove('visible');
+            }, 5000);
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'f':
+                case 'F':
+                    toggleFullscreen();
+                    break;
+                case ' ':
+                    e.preventDefault();
+                    if (player.paused) player.play();
+                    else player.pause();
+                    break;
+                case 'm':
+                case 'M':
+                    player.muted = !player.muted;
+                    break;
+                case 'd':
+                case 'D':
+                    // Toggle debug stats
+                    document.getElementById('stats-overlay').classList.toggle('visible');
+                    break;
+                case 'r':
+                case 'R':
+                    // Force refresh
+                    fetchPlaylist();
+                    break;
+            }
+        });
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Double click for fullscreen
+        document.querySelector('.display-container').addEventListener('dblclick', toggleFullscreen);
+
+        // Handle video errors
+        player.addEventListener('error', () => {
+            console.error('Video error, trying next...');
+            currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
+            playNextAd();
+        });
+
+        // Auto fullscreen on load (optional)
+        // setTimeout(toggleFullscreen, 1000);
+
+        // Initialize
+        connectWebSocket();
+
+        // Update connection status periodically
+        setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                document.getElementById('ws-status').textContent = 'Connected';
+            } else {
+                document.getElementById('ws-status').textContent = 'Disconnected';
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
