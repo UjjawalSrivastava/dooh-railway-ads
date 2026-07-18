@@ -506,6 +506,15 @@
             setTimeout(connectWebSocket, 5000);
         }
 
+        // WebSocket Connection
+        function connectWebSocket() {
+            if (reconnectAttempts >= maxReconnectAttempts) {
+                console.log('Max reconnection attempts reached, using HTTP polling');
+                useWebSocket = false;
+                startHttpPolling();
+                return;
+            }
+
             reconnectAttempts++;
             loadingDetails.textContent = `Connecting to server (attempt ${reconnectAttempts})...`;
 
