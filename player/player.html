@@ -481,9 +481,9 @@
         let currentAdIndex = 0;
         let isPlaying = false;
         let ws = null;
-        let useWebSocket = true;
+        let useWebSocket = false; // Disable WebSocket for Render compatibility
         let reconnectAttempts = 0;
-        const maxReconnectAttempts = 5;
+        const maxReconnectAttempts = 1;
 
         // Clock
         function updateClock() {
@@ -498,14 +498,13 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // WebSocket Connection
-        function connectWebSocket() {
-            if (reconnectAttempts >= maxReconnectAttempts) {
-                console.log('Max reconnection attempts reached, using HTTP polling');
-                useWebSocket = false;
-                startHttpPolling();
-                return;
-            }
+        // Initialize - use HTTP polling directly (WebSocket has issues on Render free tier)
+        function init() {
+            loadingDetails.textContent = 'Loading playlist...';
+            startHttpPolling();
+            // Try WebSocket as backup
+            setTimeout(connectWebSocket, 5000);
+        }
 
             reconnectAttempts++;
             loadingDetails.textContent = `Connecting to server (attempt ${reconnectAttempts})...`;
@@ -761,7 +760,7 @@
         // setTimeout(toggleFullscreen, 1000);
 
         // Initialize
-        connectWebSocket();
+        init();
 
         // Update connection status periodically
         setInterval(() => {
