@@ -611,11 +611,13 @@
             const ad = currentPlaylist[currentAdIndex];
 
             if (ad.videoUrl) {
-                const videoUrl = `http://${SERVER_IP}:${SERVER_PORT}${ad.videoUrl}`;
+                const videoUrl = `https://${SERVER_IP}:${SERVER_PORT}${ad.videoUrl}`;
 
                 // Check if video URL changed
                 if (player.src !== videoUrl) {
                     player.src = videoUrl;
+                    // For mobile: wait for canplay event
+                    player.load();
                 }
 
                 player.classList.add('active');
@@ -626,17 +628,35 @@
                 document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
                 document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • Loop ${currentAdIndex + 1}/${currentPlaylist.length}`;
 
-                player.play()
-                    .then(() => {
-                        isPlaying = true;
-                        updateQueueDisplay();
-                    })
-                    .catch(err => {
-                        console.error('Playback error:', err);
-                        // Try next ad on error
-                        currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
-                        playNextAd();
-                    });
+                // Mobile: try to play with user interaction workaround
+                const tryPlay = () => {
+                    player.play()
+                        .then(() => {
+                            isPlaying = true;
+                            updateQueueDisplay();
+                            console.log('Video playing successfully');
+                        })
+                        .catch(err => {
+                            console.error('Playback error:', err);
+                            // On mobile, show click-to-play if autoplay blocked
+                            if (err.name === 'NotAllowedError') {
+                                showClickToPlay();
+                            } else {
+                                // Try next ad on error
+                                currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
+                                playNextAd();
+                            }
+                        });
+                };
+
+                // Wait for video to be ready
+                if (player.readyState >= 2) {
+                    tryPlay();
+                } else {
+                    player.oncanplay = () => {
+                        tryPlay();
+                    };
+                }
 
                 // Move to next ad after this one ends
                 player.onended = () => {
@@ -646,6 +666,19 @@
             } else {
                 showDefaultContent();
             }
+        }
+
+        function showClickToPlay() {
+            // Show a message to click/tap to play (for mobile autoplay restrictions)
+            const clickPrompt = document.createElement('div');
+            clickPrompt.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:2rem;border-radius:1rem;text-align:center;z-index:200;cursor:pointer;';
+            clickPrompt.innerHTML = '<div style="font-size:3rem;margin-bottom:1rem;">▶️</div><div>Tap to play advertisement</div>';
+            clickPrompt.onclick = () => {
+                player.play();
+                clickPrompt.remove();
+                isPlaying = true;
+            };
+            document.querySelector('.display-container').appendChild(clickPrompt);
         }
 
         function showDefaultContent() {
@@ -706,6 +739,16 @@
 
         // Double click for fullscreen
         document.querySelector('.display-container').addEventListener('dblclick', toggleFullscreen);
+
+        // Mobile touch support
+        document.querySelector('.display-container').addEventListener('touchstart', () => {
+            if (player.paused && isPlaying) {
+                player.play().catch(() => {
+                    // Autoplay blocked, show prompt
+                    showClickToPlay();
+                });
+            }
+        });
 
         // Handle video errors
         player.addEventListener('error', () => {
