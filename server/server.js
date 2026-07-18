@@ -429,6 +429,16 @@ app.post('/api/book', (req, res) => {
         return res.status(400).json({ error: 'Ad not approved' });
     }
 
+    // Check for existing bookings in same slot (for information)
+    const existingBookings = db.bookings.filter(b =>
+        b.station === station &&
+        b.platforms.some(p => platforms.includes(p)) &&
+        b.date === date &&
+        parseInt(b.startTime) <= parseInt(startTime) + parseInt(hours) &&
+        parseInt(b.startTime) + parseInt(b.hours) > parseInt(startTime) &&
+        b.paymentStatus === 'completed'
+    );
+
     const bookingId = 'BK' + Date.now().toString(36).toUpperCase();
 
     const booking = {
@@ -451,10 +461,18 @@ app.post('/api/book', (req, res) => {
 
     saveDatabase(db);
 
+    // Prepare message
+    let message = 'Booking created';
+    if (existingBookings.length > 0) {
+        message = `Booking created. Your ad will be in rotation with ${existingBookings.length} other ad(s) during this time slot.`;
+    }
+
     res.json({
         success: true,
         bookingId,
-        message: 'Booking created'
+        message,
+        existingAds: existingBookings.length,
+        rotationEnabled: true
     });
 });
 
