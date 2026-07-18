@@ -449,9 +449,9 @@
     <script>
         // Configuration
         const SERVER_IP = window.location.hostname;
-        const SERVER_PORT = window.location.port || '3002';
-        const API_URL = `http://${SERVER_IP}:${SERVER_PORT}/api`;
-        const WS_URL = `ws://${SERVER_IP}:${SERVER_PORT}`;
+        const SERVER_PORT = window.location.port || '443';
+        const API_URL = `https://${SERVER_IP}/api`;
+        const WS_URL = `wss://${SERVER_IP}`;
 
         // URL Parameters
         const urlParams = new URLSearchParams(window.location.search);
