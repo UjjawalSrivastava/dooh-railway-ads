@@ -1153,7 +1153,13 @@
 
         async function handleFile(file) {
             if (!file.type.startsWith('video/')) {
-                alert('Please upload a video file');
+                showNotification('Please upload a video file', 'error');
+                return;
+            }
+
+            // File size check (100MB max)
+            if (file.size > 100 * 1024 * 1024) {
+                showNotification('File too large. Max 100MB allowed.', 'error');
                 return;
             }
 
@@ -1167,39 +1173,110 @@
             document.getElementById('preview-filesize').textContent = formatFileSize(file.size);
             document.getElementById('video-preview-container').style.display = 'block';
 
-            // Show moderation status
+            // Show upload progress
             const modStatus = document.getElementById('moderation-status');
             modStatus.style.display = 'flex';
             modStatus.className = 'moderation-status pending';
             modStatus.innerHTML = `
                 <div class="moderation-icon">⏳</div>
-                <div class="moderation-text">
-                    <div class="moderation-title">Uploading...</div>
+                <div class="moderation-text" style="flex: 1;">
+                    <div class="moderation-title">Uploading... 0%</div>
                     <div class="moderation-desc">Please wait while we upload your video</div>
+                    <div class="progress-bar" style="width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 8px;">
+                        <div class="progress-fill" style="width: 0%; height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s;"></div>
+                    </div>
                 </div>
                 <div class="spinner"></div>
             `;
 
-            // Upload to server
-            const formData = new FormData();
-            formData.append('video', file);
-            formData.append('duration', 30);
+            // Upload with retry mechanism
+            let retries = 0;
+            const maxRetries = 3;
 
-            try {
-                const res = await fetch(`${API_URL}/upload`, {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
+            while (retries < maxRetries) {
+                try {
+                    const formData = new FormData();
+                    formData.append('video', file);
+                    formData.append('duration', 30);
 
-                if (data.success) {
-                    adId = data.adId;
-                    startModerationCheck();
+                    // Create XMLHttpRequest for progress tracking
+                    const xhr = new XMLHttpRequest();
+
+                    const uploadPromise = new Promise((resolve, reject) => {
+                        xhr.upload.addEventListener('progress', (e) => {
+                            if (e.lengthComputable) {
+                                const percentComplete = Math.round((e.loaded / e.total) * 100);
+                                const progressTitle = modStatus.querySelector('.moderation-title');
+                                const progressFill = modStatus.querySelector('.progress-fill');
+                                if (progressTitle) progressTitle.textContent = `Uploading... ${percentComplete}%`;
+                                if (progressFill) progressFill.style.width = `${percentComplete}%`;
+                            }
+                        });
+
+                        xhr.addEventListener('load', () => {
+                            if (xhr.status === 200) {
+                                resolve(JSON.parse(xhr.responseText));
+                            } else {
+                                reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+                            }
+                        });
+
+                        xhr.addEventListener('error', () => reject(new Error('Network error')));
+                        xhr.addEventListener('abort', () => reject(new Error('Upload aborted')));
+
+                        xhr.open('POST', `${API_URL}/upload`, true);
+                        xhr.send(formData);
+                    });
+
+                    // Timeout after 2 minutes
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error('Upload timeout')), 120000);
+                    });
+
+                    const data = await Promise.race([uploadPromise, timeoutPromise]);
+
+                    if (data.success) {
+                        adId = data.adId;
+                        startModerationCheck();
+                        return;
+                    } else {
+                        throw new Error(data.error || 'Upload failed');
+                    }
+                } catch (err) {
+                    console.error(`Upload attempt ${retries + 1} failed:`, err);
+                    retries++;
+
+                    if (retries < maxRetries) {
+                        // Show retry message
+                        modStatus.querySelector('.moderation-title').textContent = `Retrying... (${retries}/${maxRetries})`;
+                        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2s before retry
+                    } else {
+                        // Final failure
+                        modStatus.className = 'moderation-status rejected';
+                        modStatus.innerHTML = `
+                            <div class="moderation-icon">❌</div>
+                            <div class="moderation-text">
+                                <div class="moderation-title">Upload Failed</div>
+                                <div class="moderation-desc">${err.message || 'Network error. Please check your connection and try again.'}</div>
+                            </div>
+                        `;
+                        showNotification('Upload failed. Please try again.', 'error');
+                    }
                 }
-            } catch (err) {
-                console.error('Upload error:', err);
-                alert('Upload failed. Please try again.');
             }
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.style.cssText = `position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem; border-radius: 0.5rem; color: white; font-weight: 500; z-index: 1000; animation: slideIn 0.3s ease;`;
+            notification.style.background = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
         }
 
         function removeFile() {

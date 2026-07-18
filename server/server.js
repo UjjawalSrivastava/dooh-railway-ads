@@ -336,37 +336,70 @@ app.post('/api/calculate-price', (req, res) => {
     });
 });
 
-// Upload video
-app.post('/api/upload', upload.single('video'), (req, res) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No video uploaded' });
-    }
+// Upload video with error handling
+app.post('/api/upload', (req, res) => {
+    upload.single('video')(req, res, (err) => {
+        if (err) {
+            console.error('Upload error:', err);
+            if (err.code === 'LIMIT_FILE_SIZE') {
+                return res.status(413).json({
+                    error: 'File too large. Max 500MB allowed.',
+                    code: 'FILE_TOO_LARGE'
+                });
+            }
+            if (err.message === 'Only video files allowed') {
+                return res.status(400).json({
+                    error: 'Only video files (MP4, MOV, AVI) are allowed.',
+                    code: 'INVALID_FILE_TYPE'
+                });
+            }
+            return res.status(500).json({
+                error: 'Upload failed. Please try again.',
+                code: 'UPLOAD_ERROR'
+            });
+        }
 
-    const adId = uuidv4();
-    const db = getDatabase();
+        if (!req.file) {
+            return res.status(400).json({
+                error: 'No video file received.',
+                code: 'NO_FILE'
+            });
+        }
 
-    const ad = {
-        id: adId,
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        path: `/uploads/${req.file.filename}`,
-        size: req.file.size,
-        uploadedAt: new Date().toISOString(),
-        status: 'pending',
-        moderationResult: null,
-        duration: req.body.duration || 30
-    };
+        try {
+            const adId = uuidv4();
+            const db = getDatabase();
 
-    db.ads.push(ad);
-    saveDatabase(db);
+            const ad = {
+                id: adId,
+                filename: req.file.filename,
+                originalName: req.file.originalname,
+                path: `/uploads/${req.file.filename}`,
+                size: req.file.size,
+                uploadedAt: new Date().toISOString(),
+                status: 'pending',
+                moderationResult: null,
+                duration: req.body.duration || 30
+            };
 
-    // Simulate AI moderation
-    setTimeout(() => runAIModeration(adId), 2000);
+            db.ads.push(ad);
+            saveDatabase(db);
 
-    res.json({
-        success: true,
-        adId,
-        message: 'Video uploaded. AI moderation in progress...'
+            // Simulate AI moderation
+            setTimeout(() => runAIModeration(adId), 2000);
+
+            res.json({
+                success: true,
+                adId,
+                message: 'Video uploaded successfully. AI moderation in progress...'
+            });
+        } catch (error) {
+            console.error('Server error during upload:', error);
+            res.status(500).json({
+                error: 'Server error. Please try again.',
+                code: 'SERVER_ERROR'
+            });
+        }
     });
 });
 
