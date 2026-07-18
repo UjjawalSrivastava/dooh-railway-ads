@@ -416,16 +416,16 @@ function runAIModeration(adId) {
             const ad2 = db2.ads.find(a => a.id === adId);
 
             if (ad2) {
-                const isApproved = Math.random() > 0.1;
-                ad2.status = isApproved ? 'approved' : 'rejected';
+                // DEMO: Auto-approve all videos (for production, use real AI)
+                ad2.status = 'approved';
                 ad2.moderationResult = {
                     checkedAt: new Date().toISOString(),
                     nsfw: false,
                     violence: false,
                     political: false,
                     confidence: 0.98,
-                    approved: isApproved,
-                    reason: isApproved ? 'Content meets guidelines' : 'Low quality content'
+                    approved: true,
+                    reason: 'Content meets guidelines'
                 };
                 saveDatabase(db2);
             }
