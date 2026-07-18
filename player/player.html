@@ -765,6 +765,24 @@
             playNextAd();
         });
 
+        // Hide QR code when video plays
+        player.addEventListener('play', () => {
+            const qrOverlay = document.querySelector('.qr-overlay');
+            if (qrOverlay) {
+                qrOverlay.style.display = 'none';
+            }
+        });
+
+        // Show QR code when video stops
+        player.addEventListener('pause', () => {
+            if (!isPlaying) {
+                const qrOverlay = document.querySelector('.qr-overlay');
+                if (qrOverlay) {
+                    qrOverlay.style.display = 'block';
+                }
+            }
+        });
+
         // Auto fullscreen on load (optional)
         // setTimeout(toggleFullscreen, 1000);
 
