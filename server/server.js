@@ -213,8 +213,12 @@ function sendPlaylistToScreen(screenId) {
 function getPlaylistForScreen(station, platform) {
     const db = getDatabase();
     const now = new Date();
-    const today = now.toISOString().split('T')[0];
-    const currentHour = now.getHours();
+
+    // Convert server time to IST (Asia/Calcutta) since all bookings use IST
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
+    const istDate = new Date(now.getTime() + istOffset);
+    const today = istDate.toISOString().split('T')[0];
+    const currentHour = istDate.getUTCHours(); // getUTCHours on adjusted date = IST hours
 
     // 1) Find active bookings (paid, today, current time slot)
     const activeBookings = db.bookings.filter(b =>
