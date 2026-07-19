@@ -225,17 +225,41 @@ function getPlaylistForScreen(station, platform) {
         parseInt(b.startTime) + parseInt(b.hours) > currentHour
     );
 
-    return activeBookings.map(b => {
+    const playlist = activeBookings.map(b => {
         const ad = db.ads.find(a => a.id === b.adId);
+        if (!ad) return null;
+
+        // Check if the video file actually exists on disk
+        const videoPath = path.join(__dirname, '..', ad.path);
+        let fileExists = false;
+        try {
+            fileExists = fs.existsSync(videoPath);
+        } catch (e) {
+            fileExists = false;
+        }
+
+        // If file doesn't exist, try without the leading slash
+        if (!fileExists && ad.path.startsWith('/')) {
+            const altPath = path.join(__dirname, '..', ad.path.slice(1));
+            try {
+                fileExists = fs.existsSync(altPath);
+            } catch (e) {
+                fileExists = false;
+            }
+        }
+
         return {
             bookingId: b.id,
-            videoUrl: ad ? ad.path : null,
+            videoUrl: fileExists ? ad.path : null,
             duration: ad ? ad.duration : 30,
             customerName: b.customerName,
             startTime: b.startTime,
-            hours: b.hours
+            hours: b.hours,
+            fileExists
         };
-    });
+    }).filter(item => item !== null);
+
+    return playlist;
 }
 
 // Broadcast to all screens

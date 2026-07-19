@@ -409,7 +409,9 @@
         </div>
 
         <!-- Video Player (no loop - playlist rotation via timer) -->
-        <video id="main-player" playsinline></video>
+        <video id="main-player" playsinline preload="metadata"></video>
+        <!-- Hidden placeholder to prevent video error when no source -->
+        <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 
         <!-- Default Content -->
         <div class="default-content" id="default-content">
@@ -486,6 +488,9 @@
         const maxReconnectAttempts = 1;
         let playlistTimer = null;
         let adTimer = null;
+        let clearingPlayer = false;
+        let errorCount = 0;
+        const maxErrorsBeforeFallback = 3;
 
         // Clock
         function updateClock() {
@@ -721,9 +726,15 @@
                 clearTimeout(adTimer);
                 adTimer = null;
             }
+            // Clear any pending canplay handler to prevent stale callbacks
+            player.oncanplay = null;
             player.classList.remove('active');
             player.pause();
-            player.src = '';
+            // Clear source without triggering error events
+            clearingPlayer = true;
+            player.removeAttribute('src');
+            player.load();
+            clearingPlayer = false;
             defaultContent.classList.remove('hidden');
             infoBar.classList.add('hidden');
             playlistQueue.classList.add('hidden');
@@ -785,7 +796,15 @@
         });
 
         player.addEventListener('error', (e) => {
+            // Ignore errors triggered by clearing the player source
+            if (clearingPlayer) return;
             console.error('Video error:', e);
+            errorCount++;
+            if (errorCount >= maxErrorsBeforeFallback) {
+                console.log('Too many video errors, showing default content');
+                showDefaultContent();
+                return;
+            }
             if (isPlaying && currentPlaylist.length > 0) {
                 const nextIndex = (currentAdIndex + 1) % currentPlaylist.length;
                 playAd(nextIndex);
