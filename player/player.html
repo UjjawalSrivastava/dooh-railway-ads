@@ -408,8 +408,8 @@
             <div id="error-text">Failed to connect to server</div>
         </div>
 
-        <!-- Video Player -->
-        <video id="main-player" loop playsinline muted></video>
+        <!-- Video Player (no loop - playlist rotation via timer) -->
+        <video id="main-player" playsinline></video>
 
         <!-- Default Content -->
         <div class="default-content" id="default-content">
@@ -447,11 +447,11 @@
     </div>
 
     <script>
-        // Configuration
-        const SERVER_IP = window.location.hostname;
-        const SERVER_PORT = window.location.port || '443';
-        const API_URL = `https://${SERVER_IP}/api`;
-        const WS_URL = `wss://${SERVER_IP}`;
+        // ============ FIX: Use window.location.host (works on Render AND local) ============
+        // On Render:  host = "dooh-railway-ads.onrender.com" (no port needed)
+        // On Local:   host = "localhost:3002" (port included)
+        const API_BASE = `${window.location.protocol}//${window.location.host}/api`;
+        const WS_BASE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
 
         // URL Parameters
         const urlParams = new URLSearchParams(window.location.search);
@@ -481,9 +481,11 @@
         let currentAdIndex = 0;
         let isPlaying = false;
         let ws = null;
-        let useWebSocket = false; // Disable WebSocket for Render compatibility
+        let useWebSocket = false;
         let reconnectAttempts = 0;
         const maxReconnectAttempts = 1;
+        let playlistTimer = null;
+        let adTimer = null;
 
         // Clock
         function updateClock() {
@@ -498,11 +500,10 @@
         setInterval(updateClock, 1000);
         updateClock();
 
-        // Initialize - use HTTP polling directly (WebSocket has issues on Render free tier)
+        // Initialize - HTTP polling first (WebSocket as backup)
         function init() {
             loadingDetails.textContent = 'Loading playlist...';
             startHttpPolling();
-            // Try WebSocket as backup
             setTimeout(connectWebSocket, 5000);
         }
 
@@ -511,43 +512,44 @@
             if (reconnectAttempts >= maxReconnectAttempts) {
                 console.log('Max reconnection attempts reached, using HTTP polling');
                 useWebSocket = false;
-                startHttpPolling();
                 return;
             }
 
             reconnectAttempts++;
             loadingDetails.textContent = `Connecting to server (attempt ${reconnectAttempts})...`;
 
-            ws = new WebSocket(`${WS_URL}?screenId=${screenId}&station=${encodeURIComponent(station)}&platform=${encodeURIComponent(platform)}`);
+            try {
+                ws = new WebSocket(`${WS_BASE}?screenId=${screenId}&station=${encodeURIComponent(station)}&platform=${encodeURIComponent(platform)}`);
 
-            ws.onopen = () => {
-                console.log('WebSocket connected');
-                connectionStatus.className = 'connection-status connected';
-                connectionStatus.textContent = '🟢 Connected';
-                loadingDetails.textContent = 'Connected, loading playlist...';
-                reconnectAttempts = 0;
-                useWebSocket = true;
-            };
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    connectionStatus.className = 'connection-status connected';
+                    connectionStatus.textContent = '🟢 Connected';
+                    loadingDetails.textContent = 'Connected, loading playlist...';
+                    reconnectAttempts = 0;
+                    useWebSocket = true;
+                };
 
-            ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                handleWebSocketMessage(message);
-            };
+                ws.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    handleWebSocketMessage(message);
+                };
 
-            ws.onclose = () => {
-                console.log('WebSocket disconnected');
-                connectionStatus.className = 'connection-status disconnected';
-                connectionStatus.textContent = '🔴 Disconnected';
+                ws.onclose = () => {
+                    console.log('WebSocket disconnected');
+                    connectionStatus.className = 'connection-status disconnected';
+                    connectionStatus.textContent = '🔴 Disconnected';
+                    setTimeout(connectWebSocket, 5000);
+                };
 
-                // Try to reconnect after 5 seconds
-                setTimeout(connectWebSocket, 5000);
-            };
-
-            ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    useWebSocket = false;
+                };
+            } catch (e) {
+                console.error('WebSocket connection failed:', e);
                 useWebSocket = false;
-                startHttpPolling();
-            };
+            }
         }
 
         function handleWebSocketMessage(message) {
@@ -566,29 +568,39 @@
         function startHttpPolling() {
             console.log('Starting HTTP polling');
             fetchPlaylist();
-            setInterval(fetchPlaylist, 10000);
+            playlistTimer = setInterval(fetchPlaylist, 10000);
         }
 
         async function fetchPlaylist() {
             try {
-                const res = await fetch(`${API_URL}/player/${encodeURIComponent(station)}/${encodeURIComponent(platform)}/playlist`);
+                const url = `${API_BASE}/player/${encodeURIComponent(station)}/${encodeURIComponent(platform)}/playlist`;
+                console.log('Fetching playlist from:', url);
+                const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
                 const data = await res.json();
+                console.log('Playlist fetched:', data);
                 updatePlaylist(data.playlist);
+                loading.classList.add('hidden');
             } catch (err) {
                 console.error('Failed to fetch playlist:', err);
-                showError('Failed to fetch playlist');
+                showError('Failed to fetch playlist: ' + err.message);
             }
         }
 
         function updatePlaylist(playlist) {
-            currentPlaylist = playlist.filter(item => item.type !== 'filler');
+            const realAds = playlist.filter(item => item.type !== 'filler' && item.videoUrl);
 
-            if (currentPlaylist.length > 0) {
+            if (realAds.length > 0) {
+                currentPlaylist = realAds;
                 updateQueueDisplay();
                 if (!isPlaying) {
-                    playNextAd();
+                    currentAdIndex = 0;
+                    playAd(0);
                 }
             } else {
+                currentPlaylist = [];
                 showDefaultContent();
             }
         }
@@ -598,101 +610,120 @@
 
             if (currentPlaylist.length > 1) {
                 playlistQueue.classList.remove('hidden');
-                queueItems.innerHTML = currentPlaylist.slice(1).map((item, i) => `
+                const upcoming = [];
+                for (let i = 1; i < currentPlaylist.length; i++) {
+                    const idx = (currentAdIndex + i) % currentPlaylist.length;
+                    upcoming.push(currentPlaylist[idx]);
+                }
+                queueItems.innerHTML = upcoming.map((item, i) => `
                     <div class="queue-item">${i + 1}. ${item.customerName || 'Advertisement'}</div>
                 `).join('');
             } else {
                 playlistQueue.classList.add('hidden');
             }
 
-            // Update stats
             document.getElementById('playlist-count').textContent = currentPlaylist.length;
             document.getElementById('current-ad').textContent = currentAdIndex + 1;
         }
 
-        function playNextAd() {
+        function playAd(index) {
             if (currentPlaylist.length === 0) {
                 showDefaultContent();
                 return;
             }
 
-            const ad = currentPlaylist[currentAdIndex];
+            if (adTimer) {
+                clearTimeout(adTimer);
+                adTimer = null;
+            }
 
-            if (ad.videoUrl) {
-                const videoUrl = `https://${SERVER_IP}:${SERVER_PORT}${ad.videoUrl}`;
-
-                // Check if video URL changed
-                if (player.src !== videoUrl) {
-                    player.src = videoUrl;
-                    // For mobile: wait for canplay event
-                    player.load();
-                }
-
-                player.classList.add('active');
-                defaultContent.classList.add('hidden');
-                infoBar.classList.remove('hidden');
-                loading.classList.add('hidden');
-
-                document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
-                document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • Loop ${currentAdIndex + 1}/${currentPlaylist.length}`;
-
-                // Mobile: try to play with user interaction workaround
-                const tryPlay = () => {
-                    player.play()
-                        .then(() => {
-                            isPlaying = true;
-                            updateQueueDisplay();
-                            console.log('Video playing successfully');
-                        })
-                        .catch(err => {
-                            console.error('Playback error:', err);
-                            // On mobile, show click-to-play if autoplay blocked
-                            if (err.name === 'NotAllowedError') {
-                                showClickToPlay();
-                            } else {
-                                // Try next ad on error
-                                currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
-                                playNextAd();
-                            }
-                        });
-                };
-
-                // Wait for video to be ready
-                if (player.readyState >= 2) {
-                    tryPlay();
-                } else {
-                    player.oncanplay = () => {
-                        tryPlay();
-                    };
-                }
-
-                // Move to next ad after this one ends
-                player.onended = () => {
-                    currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
-                    playNextAd();
-                };
-            } else {
+            const ad = currentPlaylist[index];
+            if (!ad || !ad.videoUrl) {
                 showDefaultContent();
+                return;
+            }
+
+            // ============ FIX: Use window.location.origin for video URLs ============
+            // On Render: origin = "https://dooh-railway-ads.onrender.com"
+            // On Local:  origin = "http://localhost:3002"
+            const videoUrl = `${window.location.origin}${ad.videoUrl}`;
+            console.log('Playing ad:', videoUrl);
+
+            if (player.src !== videoUrl) {
+                player.src = videoUrl;
+                player.load();
+            }
+
+            player.classList.add('active');
+            defaultContent.classList.add('hidden');
+            infoBar.classList.remove('hidden');
+            loading.classList.add('hidden');
+
+            document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
+            document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • ${index + 1}/${currentPlaylist.length}`;
+
+            const tryPlay = () => {
+                player.play()
+                    .then(() => {
+                        isPlaying = true;
+                        currentAdIndex = index;
+                        updateQueueDisplay();
+                        console.log('Video playing successfully');
+
+                        // Schedule next ad after this ad's duration
+                        const duration = (ad.duration || 30) * 1000;
+                        adTimer = setTimeout(() => {
+                            const nextIndex = (index + 1) % currentPlaylist.length;
+                            playAd(nextIndex);
+                        }, duration);
+                    })
+                    .catch(err => {
+                        console.error('Playback error:', err);
+                        if (err.name === 'NotAllowedError') {
+                            showClickToPlay();
+                        } else {
+                            const nextIndex = (index + 1) % currentPlaylist.length;
+                            playAd(nextIndex);
+                        }
+                    });
+            };
+
+            if (player.readyState >= 2) {
+                tryPlay();
+            } else {
+                player.oncanplay = () => {
+                    tryPlay();
+                };
+                setTimeout(() => {
+                    if (!isPlaying) {
+                        tryPlay();
+                    }
+                }, 5000);
             }
         }
 
         function showClickToPlay() {
-            // Show a message to click/tap to play (for mobile autoplay restrictions)
             const clickPrompt = document.createElement('div');
             clickPrompt.style.cssText = 'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.8);color:white;padding:2rem;border-radius:1rem;text-align:center;z-index:200;cursor:pointer;';
             clickPrompt.innerHTML = '<div style="font-size:3rem;margin-bottom:1rem;">▶️</div><div>Tap to play advertisement</div>';
             clickPrompt.onclick = () => {
-                player.play();
+                player.play().then(() => {
+                    isPlaying = true;
+                }).catch(e => console.error(e));
                 clickPrompt.remove();
-                isPlaying = true;
             };
             document.querySelector('.display-container').appendChild(clickPrompt);
         }
 
         function showDefaultContent() {
             isPlaying = false;
+            if (adTimer) {
+                clearTimeout(adTimer);
+                adTimer = null;
+            }
             player.classList.remove('active');
             player.pause();
+            player.src = '';
             defaultContent.classList.remove('hidden');
             infoBar.classList.add('hidden');
             playlistQueue.classList.add('hidden');
@@ -726,12 +757,10 @@
                     break;
                 case 'd':
                 case 'D':
-                    // Toggle debug stats
                     document.getElementById('stats-overlay').classList.toggle('visible');
                     break;
                 case 'r':
                 case 'R':
-                    // Force refresh
                     fetchPlaylist();
                     break;
             }
@@ -745,27 +774,24 @@
             }
         }
 
-        // Double click for fullscreen
         document.querySelector('.display-container').addEventListener('dblclick', toggleFullscreen);
 
-        // Mobile touch support
         document.querySelector('.display-container').addEventListener('touchstart', () => {
             if (player.paused && isPlaying) {
                 player.play().catch(() => {
-                    // Autoplay blocked, show prompt
                     showClickToPlay();
                 });
             }
         });
 
-        // Handle video errors
-        player.addEventListener('error', () => {
-            console.error('Video error, trying next...');
-            currentAdIndex = (currentAdIndex + 1) % currentPlaylist.length;
-            playNextAd();
+        player.addEventListener('error', (e) => {
+            console.error('Video error:', e);
+            if (isPlaying && currentPlaylist.length > 0) {
+                const nextIndex = (currentAdIndex + 1) % currentPlaylist.length;
+                playAd(nextIndex);
+            }
         });
 
-        // Hide QR code when video plays
         player.addEventListener('play', () => {
             const qrOverlay = document.querySelector('.qr-overlay');
             if (qrOverlay) {
@@ -773,7 +799,6 @@
             }
         });
 
-        // Show QR code when video stops
         player.addEventListener('pause', () => {
             if (!isPlaying) {
                 const qrOverlay = document.querySelector('.qr-overlay');
@@ -783,13 +808,9 @@
             }
         });
 
-        // Auto fullscreen on load (optional)
-        // setTimeout(toggleFullscreen, 1000);
-
         // Initialize
         init();
 
-        // Update connection status periodically
         setInterval(() => {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 document.getElementById('ws-status').textContent = 'Connected';
