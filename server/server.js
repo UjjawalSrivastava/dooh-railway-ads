@@ -261,23 +261,23 @@ function getPlaylistForScreen(station, platform) {
         };
     }).filter(item => item !== null);
 
-    // 3) If no active bookings, fall back to approved/scheduled ads with valid video files
-    //    that are associated with this station (from any booking or just available on disk)
+    // 3) If no active bookings, fall back to ads that were booked for THIS specific platform
+    //    (even if their time slot expired). This prevents ads from leaking across platforms.
     if (playlist.length === 0) {
-        const stationBookings = db.bookings.filter(b =>
+        // Get all completed bookings for this station + platform (past, current, or future)
+        const platformBookings = db.bookings.filter(b =>
             b.station === station &&
             b.platforms.includes(platform) &&
             b.paymentStatus === 'completed'
         );
-        const stationAdIds = new Set(stationBookings.map(b => b.adId));
 
-        // Collect any approved/scheduled ads that have a real file on disk
-        const fallbackAds = db.ads.filter(a =>
-            (a.status === 'approved' || a.status === 'scheduled') &&
-            a.path
-        );
+        // Only show ads that were actually booked for this specific platform
+        for (const b of platformBookings) {
+            const ad = db.ads.find(a => a.id === b.adId);
+            if (!ad) continue;
+            if (ad.status !== 'approved' && ad.status !== 'scheduled') continue;
 
-        for (const ad of fallbackAds) {
+            // Check if the video file actually exists on disk
             const videoPath = path.join(__dirname, '..', ad.path);
             let fileExists = false;
             try {
@@ -295,14 +295,13 @@ function getPlaylistForScreen(station, platform) {
             }
 
             if (fileExists) {
-                const isStationAd = stationAdIds.has(ad.id);
                 playlist.push({
-                    bookingId: ad.bookingId || 'fallback',
+                    bookingId: b.id,
                     videoUrl: ad.path,
                     duration: ad.duration || 30,
-                    customerName: isStationAd ? 'Advertisement' : 'Demo Content',
-                    startTime: '00',
-                    hours: 24,
+                    customerName: b.customerName,
+                    startTime: b.startTime,
+                    hours: b.hours,
                     fileExists: true
                 });
             }
