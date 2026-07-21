@@ -23,6 +23,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../player')));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
+// Serve uploads with platform subfolders support
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Root route - redirect to booking page
@@ -133,10 +134,35 @@ function logPlayback(screenId, bookingId, status) {
     fs.writeFileSync(LOGS_PATH, JSON.stringify(logs, null, 2));
 }
 
-// Multer config
+// Multer config - platform-specific subfolders
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, '../uploads'));
+        // Parse platforms from req.body (sent as JSON string)
+        let platforms = ['default'];
+        try {
+            if (req.body.platforms) {
+                platforms = JSON.parse(req.body.platforms);
+            }
+        } catch (e) {
+            console.error('Failed to parse platforms:', e);
+        }
+
+        // Use first platform as primary folder (videos can be shared across platforms)
+        const primaryPlatform = platforms[0] || 'default';
+        const platformFolder = primaryPlatform.replace(/\s+/g, '_'); // Replace spaces with underscores
+
+        const uploadPath = path.join(__dirname, '../uploads', platformFolder);
+
+        // Create platform subfolder if not exists
+        if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+        }
+
+        // Store platforms info on req for later use
+        req.platforms = platforms;
+        req.platformFolder = platformFolder;
+
+        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueName = `${uuidv4()}-${file.originalname}`;
@@ -220,6 +246,8 @@ function getPlaylistForScreen(station, platform) {
     const today = istDate.toISOString().split('T')[0];
     const currentHour = istDate.getUTCHours(); // getUTCHours on adjusted date = IST hours
 
+    console.log(`[Playlist] Request for ${station}/${platform}, IST: ${today} ${currentHour}:00`);
+
     // 1) Find active bookings (paid, today, current time slot)
     const activeBookings = db.bookings.filter(b =>
         b.station === station &&
@@ -230,10 +258,15 @@ function getPlaylistForScreen(station, platform) {
         parseInt(b.startTime) + parseInt(b.hours) > currentHour
     );
 
+    console.log(`[Playlist] Found ${activeBookings.length} active bookings for current slot`);
+
     // 2) Build playlist from active bookings
     const playlist = activeBookings.map(b => {
         const ad = db.ads.find(a => a.id === b.adId);
-        if (!ad) return null;
+        if (!ad) {
+            console.log(`[Playlist] Warning: Ad not found for booking ${b.id}`);
+            return null;
+        }
 
         // Check if the video file actually exists on disk
         const videoPath = path.join(__dirname, '..', ad.path);
@@ -244,11 +277,14 @@ function getPlaylistForScreen(station, platform) {
             fileExists = false;
         }
 
+        console.log(`[Playlist] Ad ${ad.id}: path=${ad.path}, exists=${fileExists}`);
+
         // If file doesn't exist, try without the leading slash
         if (!fileExists && ad.path.startsWith('/')) {
             const altPath = path.join(__dirname, '..', ad.path.slice(1));
             try {
                 fileExists = fs.existsSync(altPath);
+                if (fileExists) console.log(`[Playlist] Found at alt path: ${altPath}`);
             } catch (e) {
                 fileExists = false;
             }
@@ -265,15 +301,21 @@ function getPlaylistForScreen(station, platform) {
         };
     }).filter(item => item !== null);
 
+    console.log(`[Playlist] Built playlist with ${playlist.length} items (${playlist.filter(p => p.fileExists).length} with valid files)`);
+
     // 3) If no active bookings, fall back to ads that were booked for THIS specific platform
     //    (even if their time slot expired). This prevents ads from leaking across platforms.
     if (playlist.length === 0) {
+        console.log(`[Playlist] No active bookings, checking fallback for ${station}/${platform}`);
+
         // Get all completed bookings for this station + platform (past, current, or future)
         const platformBookings = db.bookings.filter(b =>
             b.station === station &&
             b.platforms.includes(platform) &&
             b.paymentStatus === 'completed'
         );
+
+        console.log(`[Playlist] Found ${platformBookings.length} total platform bookings for fallback`);
 
         // Only show ads that were actually booked for this specific platform
         for (const b of platformBookings) {
@@ -298,6 +340,8 @@ function getPlaylistForScreen(station, platform) {
                 }
             }
 
+            console.log(`[Playlist] Fallback ad ${ad.id}: path=${ad.path}, exists=${fileExists}`);
+
             if (fileExists) {
                 playlist.push({
                     bookingId: b.id,
@@ -310,6 +354,8 @@ function getPlaylistForScreen(station, platform) {
                 });
             }
         }
+
+        console.log(`[Playlist] Fallback added ${playlist.length} items`);
     }
 
     return playlist;
@@ -447,11 +493,17 @@ app.post('/api/upload', (req, res) => {
             const adId = uuidv4();
             const db = getDatabase();
 
+            // Build platform-specific path
+            const platformFolder = req.platformFolder || 'default';
+            const adPath = `/uploads/${platformFolder}/${req.file.filename}`;
+
             const ad = {
                 id: adId,
                 filename: req.file.filename,
                 originalName: req.file.originalname,
-                path: `/uploads/${req.file.filename}`,
+                path: adPath,
+                platforms: req.platforms || ['default'],
+                platformFolder: platformFolder,
                 size: req.file.size,
                 uploadedAt: new Date().toISOString(),
                 status: 'pending',
