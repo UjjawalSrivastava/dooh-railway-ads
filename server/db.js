@@ -44,15 +44,34 @@ const gridfsHelpers = {
     // Upload file to GridFS
     uploadFile(fileBuffer, filename, metadata = {}) {
         return new Promise((resolve, reject) => {
-            const bucket = getGFSBucket();
-            const uploadStream = bucket.openUploadStream(filename, {
-                metadata: metadata
-            });
+            try {
+                const bucket = getGFSBucket();
+                const uploadStream = bucket.openUploadStream(filename, {
+                    metadata: metadata
+                });
 
-            uploadStream.on('error', (err) => reject(err));
-            uploadStream.on('finish', (file) => resolve(file));
+                uploadStream.on('error', (err) => {
+                    console.error('[GridFS] Upload error:', err);
+                    reject(err);
+                });
 
-            uploadStream.end(fileBuffer);
+                uploadStream.on('finish', () => {
+                    // The file id is available on the stream object
+                    const file = {
+                        _id: uploadStream.id,
+                        filename: filename,
+                        length: fileBuffer.length,
+                        metadata: metadata
+                    };
+                    console.log('[GridFS] Upload complete:', file._id.toString());
+                    resolve(file);
+                });
+
+                uploadStream.end(fileBuffer);
+            } catch (err) {
+                console.error('[GridFS] Upload setup error:', err);
+                reject(err);
+            }
         });
     },
 
