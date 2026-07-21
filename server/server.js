@@ -782,6 +782,15 @@ app.get('/api/admin/bookings', async (req, res) => {
     res.json(bookingsWithAds);
 });
 
+app.get('/api/admin/ads', async (req, res) => {
+    if (!useMongoDB) {
+        return res.json([]);
+    }
+
+    const ads = await dbHelpers.getAds();
+    res.json(ads);
+});
+
 app.get('/api/admin/stats', async (req, res) => {
     if (!useMongoDB) {
         return res.json({
