@@ -532,17 +532,30 @@ app.get('/api/ad/:adId/status', async (req, res) => {
 });
 
 app.post('/api/book', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available. Cannot create booking.' });
-    }
+    try {
+        if (!useMongoDB) {
+            return res.status(503).json({ error: 'Database not available. Cannot create booking.' });
+        }
 
-    const { adId, state, district, station, platforms, hours, startTime, date, primeTime,
-            customerName, customerEmail, customerPhone, priceDetails } = req.body;
+        const { adId, state, district, station, platforms, hours, startTime, date, primeTime,
+                customerName, customerEmail, customerPhone, priceDetails } = req.body;
 
-    const ad = await dbHelpers.getAdById(adId);
-    if (!ad || ad.status !== 'approved') {
-        return res.status(400).json({ error: 'Ad not approved' });
-    }
+        console.log('[Booking] Request:', { adId, state, station, platforms, customerEmail });
+
+        if (!adId) {
+            return res.status(400).json({ error: 'Missing adId in request' });
+        }
+
+        const ad = await dbHelpers.getAdById(adId);
+        console.log('[Booking] Found ad:', ad ? { id: ad.id, status: ad.status } : 'not found');
+
+        if (!ad) {
+            return res.status(400).json({ error: 'Ad not found with id: ' + adId });
+        }
+
+        if (ad.status !== 'approved') {
+            return res.status(400).json({ error: 'Ad not approved. Current status: ' + ad.status });
+        }
 
     // Check for existing bookings
     const bookings = await dbHelpers.getBookings();
@@ -571,15 +584,20 @@ app.post('/api/book', async (req, res) => {
     await dbHelpers.createBooking(bookingData);
     await dbHelpers.updateAd(adId, { status: 'scheduled', bookingId });
 
-    res.json({
-        success: true,
-        bookingId,
-        message: existingBookings.length > 0
-            ? `Booking created. Your ad will rotate with ${existingBookings.length} other ad(s).`
-            : 'Booking created',
-        existingAds: existingBookings.length,
-        rotationEnabled: true
-    });
+        res.json({
+            success: true,
+            bookingId,
+            message: existingBookings.length > 0
+                ? `Booking created. Your ad will rotate with ${existingBookings.length} other ad(s).`
+                : 'Booking created',
+            existingAds: existingBookings.length,
+            rotationEnabled: true
+        });
+    } catch (error) {
+        console.error('[Booking] Error:', error.message);
+        console.error(error.stack);
+        res.status(500).json({ error: 'Booking failed: ' + error.message });
+    }
 });
 
 app.post('/api/payment', async (req, res) => {
