@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DOOH Platform Setup - Database Configuration</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f2f5;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .setup-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        .logo {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo h1 {
+            font-size: 28px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+
+        .logo p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            gap: 10px;
+        }
+
+        .step {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            background: #e4e6eb;
+            color: #666;
+        }
+
+        .step.active {
+            background: #007bff;
+            color: white;
+        }
+
+        .step.completed {
+            background: #28a745;
+            color: white;
+        }
+
+        h2 {
+            font-size: 22px;
+            margin-bottom: 20px;
+            color: #1a1a1a;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        label .required {
+            color: #dc3545;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="url"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .help-text {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px 24px;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 0 4px 4px 0;
+        }
+
+        .info-box h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #004085;
+        }
+
+        .info-box ol {
+            margin-left: 20px;
+            font-size: 13px;
+            color: #004085;
+        }
+
+        .info-box li {
+            margin-bottom: 6px;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="logo">
+            <h1>🚂 DOOH Platform</h1>
+            <p>Database Configuration Wizard</p>
+        </div>
+
+        <div class="step-indicator">
+            <div class="step active" id="step1">1. Database</div>
+            <div class="step" id="step2">2. Admin Account</div>
+            <div class="step" id="step3">3. Complete</div>
+        </div>
+
+        <!-- Step 1: Database Configuration -->
+        <div id="database-step">
+            <h2>Database Configuration</h2>
+
+            <div class="info-box">
+                <h3>📋 How to get MongoDB URI (Free):</h3>
+                <ol>
+                    <li>Go to <a href="https://www.mongodb.com/atlas" target="_blank">mongodb.com/atlas</a> and sign up</li>
+                    <li>Create a free M0 cluster (shared)</li>
+                    <li>Select AWS / Mumbai region</li>
+                    <li>Database Access → Add New Database User</li>
+                    <li>Network Access → Allow Access from Anywhere (0.0.0.0/0)</li>
+                    <li>Clusters → Connect → Drivers → Node.js → Copy URI</li>
+                </ol>
+            </div>
+
+            <div class="error-message" id="error-msg"></div>
+
+            <div class="form-group">
+                <label for="mongo-uri">
+                    MongoDB Connection URI <span class="required">*</span>
+                </label>
+                <textarea
+                    id="mongo-uri"
+                    rows="3"
+                    placeholder="mongodb+srv://username:password@cluster.mongodb.net/dooh-platform?retryWrites=true&w=majority"
+                ></textarea>
+                <p class="help-text">
+                    Paste your MongoDB Atlas connection string here. Replace &lt;password&gt; with your actual password.
+                </p>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="testConnection()">
+                    Test Connection
+                </button>
+                <button type="button" class="btn-primary" onclick="nextStep()">
+                    Next →
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: Admin Account -->
+        <div id="admin-step" class="hidden">
+            <h2>Create Admin Account</h2>
+
+            <div class="error-message" id="error-msg2"></div>
+
+            <div class="form-group">
+                <label for="admin-username">
+                    Admin Username <span class="required">*</span>
+                </label>
+                <input
+                    type="text"
+                    id="admin-username"
+                    value="admin"
+                    placeholder="admin"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="admin-password">
+                    Admin Password <span class="required">*</span>
+                </label>
+                <input
+                    type="password"
+                    id="admin-password"
+                    value="admin123"
+                    placeholder="Enter strong password"
+                >
+                <p class="help-text">Default: admin / admin123 (change in production)</p>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-secondary" onclick="prevStep()">
+                    ← Back
+                </button>
+                <button type="button" class="btn-primary" onclick="completeSetup()">
+                    Complete Setup
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 3: Success -->
+        <div id="success-step" class="hidden">
+            <h2>✅ Setup Complete!</h2>
+
+            <div class="success-message" style="display: block;">
+                Your DOOH Platform has been configured successfully!
+            </div>
+
+            <div class="info-box">
+                <h3>📝 Important Notes:</h3>
+                <ol>
+                    <li>Configuration saved to <code>data/config.json</code></li>
+                    <li>Restart your server to apply changes</li>
+                    <li>Admin Panel: <code>/admin.html</code></li>
+                    <li>Booking Page: <code>/</code> (root)</li>
+                </ol>
+            </div>
+
+            <div class="button-group">
+                <button type="button" class="btn-primary" onclick="goToApp()">
+                    Go to Application →
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let config = {
+            mongoUri: '',
+            adminUsername: '',
+            adminPassword: ''
+        };
+
+        function showError(msg, step = 1) {
+            const errorEl = step === 1 ? document.getElementById('error-msg') : document.getElementById('error-msg2');
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            setTimeout(() => errorEl.style.display = 'none', 5000);
+        }
+
+        async function testConnection() {
+            const uri = document.getElementById('mongo-uri').value.trim();
+            if (!uri) {
+                showError('Please enter MongoDB URI');
+                return;
+            }
+
+            const btn = event.target;
+            btn.innerHTML = '<span class="spinner"></span> Testing...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/setup/test-db', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mongoUri: uri })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('✅ Connection successful!');
+                } else {
+                    showError('❌ Connection failed: ' + data.error);
+                }
+            } catch (err) {
+                showError('❌ Error: ' + err.message);
+            } finally {
+                btn.innerHTML = 'Test Connection';
+                btn.disabled = false;
+            }
+        }
+
+        function nextStep() {
+            const uri = document.getElementById('mongo-uri').value.trim();
+            if (!uri) {
+                showError('Please enter MongoDB URI');
+                return;
+            }
+
+            config.mongoUri = uri;
+
+            document.getElementById('database-step').classList.add('hidden');
+            document.getElementById('admin-step').classList.remove('hidden');
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step1').classList.add('completed');
+            document.getElementById('step2').classList.add('active');
+        }
+
+        function prevStep() {
+            document.getElementById('admin-step').classList.add('hidden');
+            document.getElementById('database-step').classList.remove('hidden');
+            document.getElementById('step2').classList.remove('active');
+            document.getElementById('step1').classList.remove('completed');
+            document.getElementById('step1').classList.add('active');
+        }
+
+        async function completeSetup() {
+            const username = document.getElementById('admin-username').value.trim();
+            const password = document.getElementById('admin-password').value.trim();
+
+            if (!username || !password) {
+                showError('Please fill all fields', 2);
+                return;
+            }
+
+            config.adminUsername = username;
+            config.adminPassword = password;
+
+            const btn = event.target;
+            btn.innerHTML = '<span class="spinner"></span> Setting up...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/setup/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('admin-step').classList.add('hidden');
+                    document.getElementById('success-step').classList.remove('hidden');
+                    document.getElementById('step2').classList.remove('active');
+                    document.getElementById('step2').classList.add('completed');
+                    document.getElementById('step3').classList.add('active');
+                } else {
+                    showError(data.error || 'Setup failed', 2);
+                }
+            } catch (err) {
+                showError('Error: ' + err.message, 2);
+            } finally {
+                btn.innerHTML = 'Complete Setup';
+                btn.disabled = false;
+            }
+        }
+
+        function goToApp() {
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>
