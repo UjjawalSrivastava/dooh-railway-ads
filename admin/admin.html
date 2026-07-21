@@ -999,7 +999,8 @@
 
         function previewAd(adId, path) {
             currentAdId = adId;
-            document.getElementById('modal-video').src = `http://localhost:3000${path}`;
+            // Use relative URL to work with any domain
+            document.getElementById('modal-video').src = path;
             document.getElementById('video-modal').classList.add('active');
         }
 
