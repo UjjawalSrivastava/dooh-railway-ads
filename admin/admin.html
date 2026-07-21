@@ -956,11 +956,8 @@
         // Ads
         async function loadAds() {
             try {
-                const res = await fetch(`${API_URL}/admin/bookings`);
-                const bookings = await res.json();
-
-                // Get all ads from bookings
-                const ads = bookings.map(b => b.ad).filter(Boolean);
+                const res = await fetch(`${API_URL}/admin/ads`);
+                const ads = await res.json();
 
                 const tbody = document.getElementById('pending-ads');
 
