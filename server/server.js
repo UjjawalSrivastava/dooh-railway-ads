@@ -556,6 +556,15 @@ app.post('/api/book', async (req, res) => {
             }
         }
 
+        // Fix: Parse platforms array if it's a string
+        if (parsedPriceDetails && typeof parsedPriceDetails.platforms === 'string') {
+            try {
+                parsedPriceDetails.platforms = JSON.parse(parsedPriceDetails.platforms);
+            } catch (e) {
+                console.error('[Booking] Failed to parse platforms:', e.message);
+            }
+        }
+
         const ad = await dbHelpers.getAdById(adId);
         console.log('[Booking] Found ad:', ad ? { id: ad.id, status: ad.status } : 'not found');
 
