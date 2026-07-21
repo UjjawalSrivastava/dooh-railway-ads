@@ -1,0 +1,9 @@
+/var/www/html/personal/railway-announcement-system/production-multi-screen/package.json
+/var/www/html/personal/railway-announcement-system/production-multi-screen/scripts/setup.sh
+/var/www/html/personal/railway-announcement-system/production-multi-screen/server/server.js
+/var/www/html/personal/railway-announcement-system/production-multi-screen/README.md
+/var/www/html/personal/railway-announcement-system/production-multi-screen/admin/admin.html
+/var/www/html/personal/railway-announcement-system/production-multi-screen/docs/SETUP_GUIDE.md
+/var/www/html/personal/railway-announcement-system/production-multi-screen/player/booking.html
+/var/www/html/personal/railway-announcement-system/production-multi-screen/player/index.html
+/var/www/html/personal/railway-announcement-system/production-multi-screen/player/player.html

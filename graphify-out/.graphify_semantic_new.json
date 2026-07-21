@@ -1,0 +1,949 @@
+{
+  "nodes": [
+    {
+      "id": "package_json_dooh_multi_screen_platform",
+      "label": "dooh-multi-screen-platform",
+      "file_type": "code",
+      "source_file": "package.json",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": "RailwayAds Team",
+      "contributor": null
+    },
+    {
+      "id": "scripts_setup_setup_script",
+      "label": "DOOH Platform Setup Script",
+      "file_type": "code",
+      "source_file": "scripts/setup.sh",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_initdatabases",
+      "label": "initDatabases",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "52-107",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_getdatabase",
+      "label": "getDatabase",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "109-111",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_savedatabase",
+      "label": "saveDatabase",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "113-115",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_getscreens",
+      "label": "getScreens",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "117-119",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_savescreens",
+      "label": "saveScreens",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "121-123",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_logplayback",
+      "label": "logPlayback",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "125-134",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_sendplaylisttoscreen",
+      "label": "sendPlaylistToScreen",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "200-211",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_getplaylistforscreen",
+      "label": "getPlaylistForScreen",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "213-316",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_broadcasttoscreens",
+      "label": "broadcastToScreens",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "319-327",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_findlocationbyscreenid",
+      "label": "findLocationByScreenId",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "349-362",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_runaimoderation",
+      "label": "runAIModeration",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "483-511",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_express_app",
+      "label": "Express App Instance",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "15-26",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_websocket_server",
+      "label": "WebSocket Server",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "17",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "server_server_multer_upload",
+      "label": "Multer Upload Config",
+      "file_type": "code",
+      "source_file": "server/server.js",
+      "source_location": "137-157",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_init",
+      "label": "init",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "509-513",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_connectwebsocket",
+      "label": "connectWebSocket",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "516-558",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_starthttppolling",
+      "label": "startHttpPolling",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "573-577",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_fetchplaylist",
+      "label": "fetchPlaylist",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "579-595",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_updateplaylist",
+      "label": "updatePlaylist",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "597-611",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_playad",
+      "label": "playAd",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "634-708",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_showdefaultcontent",
+      "label": "showDefaultContent",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "723-742",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "player_player_handlewebsocketmessage",
+      "label": "handleWebSocketMessage",
+      "file_type": "code",
+      "source_file": "player/player.html",
+      "source_location": "560-571",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_loadlocations",
+      "label": "loadLocations",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1337-1352",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_handlefile",
+      "label": "handleFile",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1154-1267",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_startmoderationcheck",
+      "label": "startModerationCheck",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1290-1334",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_calculateprice",
+      "label": "calculatePrice",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1464-1502",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_processpayment",
+      "label": "processPayment",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1511-1573",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "booking_booking_showsuccess",
+      "label": "showSuccess",
+      "file_type": "code",
+      "source_file": "player/booking.html",
+      "source_location": "1575-1628",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_loadstats",
+      "label": "loadStats",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "899-911",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_loadbookings",
+      "label": "loadBookings",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "914-924",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_renderbookings",
+      "label": "renderBookings",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "926-954",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_loadads",
+      "label": "loadAds",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "957-1001",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_loadplayer",
+      "label": "loadPlayer",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "1028-1079",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "admin_admin_previewad",
+      "label": "previewAd",
+      "file_type": "code",
+      "source_file": "admin/admin.html",
+      "source_location": "1003-1007",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "docs_setup_guide_dooh_platform",
+      "label": "DOOH Multi-Screen Platform Setup Guide",
+      "file_type": "document",
+      "source_file": "docs/SETUP_GUIDE.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "readme_dooh_multi_screen",
+      "label": "DOOH Multi-Screen Platform v2.0",
+      "file_type": "document",
+      "source_file": "README.md",
+      "source_location": null,
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null
+    },
+    {
+      "id": "concept_websocket_sync",
+      "label": "WebSocket Real-Time Sync",
+      "file_type": "rationale",
+      "source_file": "server/server.js",
+      "source_location": "159-198",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Used for instant playlist updates across all connected screens without requiring page refresh"
+    },
+    {
+      "id": "concept_http_fallback",
+      "label": "HTTP Polling Fallback",
+      "file_type": "rationale",
+      "source_file": "player/player.html",
+      "source_location": "573-577",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Provides reliability when WebSocket connections fail, ensuring ads continue to play"
+    },
+    {
+      "id": "concept_ai_moderation",
+      "label": "AI Content Moderation",
+      "file_type": "rationale",
+      "source_file": "server/server.js",
+      "source_location": "483-511",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Auto-approves uploaded videos after simulated analysis; production would use AWS Rekognition"
+    },
+    {
+      "id": "concept_platform_pricing",
+      "label": "Dynamic Platform Pricing",
+      "file_type": "rationale",
+      "source_file": "server/server.js",
+      "source_location": "371-414",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Pricing varies by footfall (very-high, high, medium, low) and prime time slots"
+    },
+    {
+      "id": "concept_ist_timezone",
+      "label": "IST Timezone Conversion",
+      "file_type": "rationale",
+      "source_file": "server/server.js",
+      "source_location": "217-221",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Server converts UTC to IST (UTC+5:30) for booking slot matching since all bookings use IST"
+    },
+    {
+      "id": "concept_fallback_playlist",
+      "label": "Fallback Playlist Strategy",
+      "file_type": "rationale",
+      "source_file": "server/server.js",
+      "source_location": "268-313",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "When no active bookings, shows approved/scheduled ads for that specific platform only to prevent cross-platform leakage"
+    },
+    {
+      "id": "concept_video_rotation",
+      "label": "Ad Rotation System",
+      "file_type": "rationale",
+      "source_file": "player/player.html",
+      "source_location": "597-611",
+      "source_url": null,
+      "captured_at": null,
+      "author": null,
+      "contributor": null,
+      "rationale": "Multiple ads rotate in a time slot with equal display time; next ad plays after current duration"
+    }
+  ],
+  "edges": [
+    {
+      "source": "server_server_initdatabases",
+      "target": "server_server_savedatabase",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "server/server.js",
+      "source_location": "93",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_sendplaylisttoscreen",
+      "target": "server_server_getplaylistforscreen",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/server.js",
+      "source_location": "205",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_getplaylistforscreen",
+      "target": "server_server_getdatabase",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/server.js",
+      "source_location": "214",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_getplaylistforscreen",
+      "target": "server_server_logplayback",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_broadcasttoscreens",
+      "target": "server_server_sendplaylisttoscreen",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_runaimoderation",
+      "target": "server_server_getdatabase",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/server.js",
+      "source_location": "484",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_runaimoderation",
+      "target": "server_server_savedatabase",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "server/server.js",
+      "source_location": "489",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_init",
+      "target": "player_player_starthttppolling",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "511",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_init",
+      "target": "player_player_connectwebsocket",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "512",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_connectwebsocket",
+      "target": "player_player_handlewebsocketmessage",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "player/player.html",
+      "source_location": "540",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_handlewebsocketmessage",
+      "target": "player_player_updateplaylist",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "563",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_starthttppolling",
+      "target": "player_player_fetchplaylist",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "575",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_fetchplaylist",
+      "target": "player_player_updateplaylist",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "589",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_updateplaylist",
+      "target": "player_player_playad",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "605",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_playad",
+      "target": "player_player_showdefaultcontent",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/player.html",
+      "source_location": "647",
+      "weight": 1.0
+    },
+    {
+      "source": "booking_booking_handlefile",
+      "target": "booking_booking_startmoderationcheck",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/booking.html",
+      "source_location": "1240",
+      "weight": 1.0
+    },
+    {
+      "source": "booking_booking_processpayment",
+      "target": "booking_booking_showsuccess",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "player/booking.html",
+      "source_location": "1565",
+      "weight": 1.0
+    },
+    {
+      "source": "admin_admin_loadbookings",
+      "target": "admin_admin_renderbookings",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "admin/admin.html",
+      "source_location": "920",
+      "weight": 1.0
+    },
+    {
+      "source": "admin_admin_loadplayer",
+      "target": "player_player_fetchplaylist",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "admin/admin.html",
+      "source_location": "1036",
+      "weight": 0.5
+    },
+    {
+      "source": "admin_admin_previewad",
+      "target": "admin_admin_loadads",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "admin/admin.html",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "scripts_setup_setup_script",
+      "target": "package_json_dooh_multi_screen_platform",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "scripts/setup.sh",
+      "source_location": "31",
+      "weight": 1.0
+    },
+    {
+      "source": "readme_dooh_multi_screen",
+      "target": "docs_setup_guide_dooh_platform",
+      "relation": "references",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "README.md",
+      "source_location": "101",
+      "weight": 1.0
+    },
+    {
+      "source": "concept_websocket_sync",
+      "target": "concept_http_fallback",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "player_player_connectwebsocket",
+      "target": "concept_websocket_sync",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "player/player.html",
+      "source_location": "516",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_starthttppolling",
+      "target": "concept_http_fallback",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "player/player.html",
+      "source_location": "573",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_runaimoderation",
+      "target": "concept_ai_moderation",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "server/server.js",
+      "source_location": "483",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_getplaylistforscreen",
+      "target": "concept_ist_timezone",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "server/server.js",
+      "source_location": "217",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_getplaylistforscreen",
+      "target": "concept_fallback_playlist",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "server/server.js",
+      "source_location": "268",
+      "weight": 1.0
+    },
+    {
+      "source": "player_player_updateplaylist",
+      "target": "concept_video_rotation",
+      "relation": "implements",
+      "confidence": "INFERRED",
+      "confidence_score": 0.95,
+      "source_file": "player/player.html",
+      "source_location": "597",
+      "weight": 1.0
+    },
+    {
+      "source": "server_server_express_app",
+      "target": "server_server_multer_upload",
+      "relation": "shares_data_with",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_getdatabase",
+      "target": "server_server_savedatabase",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_getscreens",
+      "target": "server_server_savescreens",
+      "relation": "semantically_similar_to",
+      "confidence": "INFERRED",
+      "confidence_score": 0.75,
+      "source_file": "server/server.js",
+      "source_location": null,
+      "weight": 0.5
+    },
+    {
+      "source": "player_player_fetchplaylist",
+      "target": "server_server_getplaylistforscreen",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "player/player.html",
+      "source_location": "581",
+      "weight": 0.5
+    },
+    {
+      "source": "booking_booking_calculateprice",
+      "target": "server_server_express_app",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "player/booking.html",
+      "source_location": "1474",
+      "weight": 0.5
+    },
+    {
+      "source": "booking_booking_processpayment",
+      "target": "server_server_express_app",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "player/booking.html",
+      "source_location": "1532",
+      "weight": 0.5
+    },
+    {
+      "source": "admin_admin_loadstats",
+      "target": "server_server_express_app",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "admin/admin.html",
+      "source_location": "901",
+      "weight": 0.5
+    },
+    {
+      "source": "admin_admin_loadbookings",
+      "target": "server_server_express_app",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "admin/admin.html",
+      "source_location": "916",
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_websocket_server",
+      "target": "server_server_sendplaylisttoscreen",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "server/server.js",
+      "source_location": "183",
+      "weight": 0.5
+    },
+    {
+      "source": "server_server_websocket_server",
+      "target": "server_server_broadcasttoscreens",
+      "relation": "calls",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "server/server.js",
+      "source_location": "612",
+      "weight": 0.5
+    }
+  ],
+  "hyperedges": [
+    {
+      "id": "dooh_multi_screen_architecture",
+      "label": "DOOH Multi-Screen System Architecture",
+      "nodes": [
+        "server_server_express_app",
+        "server_server_websocket_server",
+        "player_player_connectwebsocket",
+        "player_player_starthttppolling",
+        "admin_admin_loadstats",
+        "booking_booking_processpayment"
+      ],
+      "relation": "participate_in",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "server/server.js"
+    },
+    {
+      "id": "websocket_sync_flow",
+      "label": "WebSocket Real-Time Synchronization Flow",
+      "nodes": [
+        "server_server_websocket_server",
+        "server_server_sendplaylisttoscreen",
+        "server_server_getplaylistforscreen",
+        "player_player_connectwebsocket",
+        "player_player_handlewebsocketmessage"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.9,
+      "source_file": "server/server.js"
+    },
+    {
+      "id": "ad_booking_workflow",
+      "label": "Complete Ad Booking Workflow",
+      "nodes": [
+        "booking_booking_handlefile",
+        "booking_booking_startmoderationcheck",
+        "booking_booking_calculateprice",
+        "booking_booking_processpayment",
+        "server_server_runaimoderation",
+        "server_server_getdatabase"
+      ],
+      "relation": "form",
+      "confidence": "INFERRED",
+      "confidence_score": 0.85,
+      "source_file": "player/booking.html"
+    }
+  ],
+  "input_tokens": 15000,
+  "output_tokens": 3500
+}

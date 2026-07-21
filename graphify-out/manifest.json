@@ -1,0 +1,47 @@
+{
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/package.json": {
+    "mtime": 1784384992.8379068,
+    "ast_hash": "5179207e298cd36b1b7fbecb07ad4de3",
+    "semantic_hash": "5179207e298cd36b1b7fbecb07ad4de3"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/scripts/setup.sh": {
+    "mtime": 1784385004.8739026,
+    "ast_hash": "ef2d0f1f65be336c1a720c5034f65d7d",
+    "semantic_hash": "ef2d0f1f65be336c1a720c5034f65d7d"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/server/server.js": {
+    "mtime": 1784488590.7226243,
+    "ast_hash": "15f0fb65fafb8ebd0c6746fdc4e49603",
+    "semantic_hash": "15f0fb65fafb8ebd0c6746fdc4e49603"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/README.md": {
+    "mtime": 1784385122.9338617,
+    "ast_hash": "e78b32a153776f571840a9c234751013",
+    "semantic_hash": "e78b32a153776f571840a9c234751013"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/admin/admin.html": {
+    "mtime": 1784403542.4517229,
+    "ast_hash": "64ac4389445be9d7745bcfd6f7de650a",
+    "semantic_hash": "64ac4389445be9d7745bcfd6f7de650a"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/docs/SETUP_GUIDE.md": {
+    "mtime": 1784385058.833877,
+    "ast_hash": "a72925dc4ebe70002e496bb331577149",
+    "semantic_hash": "a72925dc4ebe70002e496bb331577149"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/player/booking.html": {
+    "mtime": 1784404130.7244246,
+    "ast_hash": "03ac80c7419e19a9cd2b4f35fa3d866c",
+    "semantic_hash": "03ac80c7419e19a9cd2b4f35fa3d866c"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/player/index.html": {
+    "mtime": 1784394772.0911467,
+    "ast_hash": "c50d71eaf78ff4776bf04142f4ab0a5b",
+    "semantic_hash": "c50d71eaf78ff4776bf04142f4ab0a5b"
+  },
+  "/var/www/html/personal/railway-announcement-system/production-multi-screen/player/player.html": {
+    "mtime": 1784489075.6597037,
+    "ast_hash": "69890b9caf5085c580fae4d80454bcc9",
+    "semantic_hash": "69890b9caf5085c580fae4d80454bcc9"
+  }
+}

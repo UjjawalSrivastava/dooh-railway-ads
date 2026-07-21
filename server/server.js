@@ -1,6 +1,7 @@
 /**
  * DOOH Platform - Production Multi-Screen Server
  * Railway Station Ad System with Multi-Display Support
+ * MongoDB Persistence Enabled
  */
 
 const express = require('express');
@@ -11,133 +12,75 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
 const http = require('http');
+require('dotenv').config();
+
+const { connectDB, dbHelpers } = require('./db');
 
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3002;
+let useMongoDB = false;
+
+// Static locations data (in-memory config)
+const LOCATIONS = {
+    'Delhi': {
+        'New Delhi': {
+            'New Delhi Junction': {
+                platforms: {
+                    'Platform 1': { footfall: 'very-high', pricePerHour: 100, type: 'premium', screenId: 'NDLS-P1' },
+                    'Platform 2': { footfall: 'very-high', pricePerHour: 100, type: 'premium', screenId: 'NDLS-P2' },
+                    'Platform 3': { footfall: 'high', pricePerHour: 80, type: 'premium', screenId: 'NDLS-P3' },
+                    'Platform 4': { footfall: 'high', pricePerHour: 70, type: 'standard', screenId: 'NDLS-P4' },
+                    'Platform 5': { footfall: 'medium', pricePerHour: 50, type: 'standard', screenId: 'NDLS-P5' },
+                    'Platform 6': { footfall: 'low', pricePerHour: 30, type: 'economy', screenId: 'NDLS-P6' }
+                }
+            }
+        }
+    },
+    'Uttar Pradesh': {
+        'Kanpur': {
+            'Kanpur Central (CNB)': {
+                platforms: {
+                    'Platform 1': { footfall: 'very-high', pricePerHour: 80, type: 'premium', screenId: 'CNB-P1' },
+                    'Platform 2': { footfall: 'very-high', pricePerHour: 80, type: 'premium', screenId: 'CNB-P2' },
+                    'Platform 3': { footfall: 'high', pricePerHour: 65, type: 'premium', screenId: 'CNB-P3' },
+                    'Platform 4': { footfall: 'high', pricePerHour: 60, type: 'standard', screenId: 'CNB-P4' },
+                    'Platform 5': { footfall: 'high', pricePerHour: 55, type: 'standard', screenId: 'CNB-P5' },
+                    'Platform 6': { footfall: 'medium', pricePerHour: 40, type: 'standard', screenId: 'CNB-P6' },
+                    'Platform 7': { footfall: 'medium', pricePerHour: 35, type: 'economy', screenId: 'CNB-P7' },
+                    'Platform 8': { footfall: 'low', pricePerHour: 30, type: 'economy', screenId: 'CNB-P8' },
+                    'Platform 9': { footfall: 'low', pricePerHour: 25, type: 'economy', screenId: 'CNB-P9' },
+                    'Platform 10': { footfall: 'low', pricePerHour: 25, type: 'economy', screenId: 'CNB-P10' }
+                }
+            }
+        }
+    }
+};
+
+// Admin credentials (can be moved to env vars)
+const ADMIN_CREDS = {
+    username: process.env.ADMIN_USERNAME || 'admin',
+    password: process.env.ADMIN_PASSWORD || 'admin123'
+};
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../player')));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
-// Serve uploads with platform subfolders support
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Root route - redirect to booking page
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '../player/booking.html'));
-});
-
-// Admin route - serve admin.html
-app.get('/admin.html', (req, res) => {
-    res.sendFile(path.join(__dirname, '../admin/admin.html'));
-});
-
-// Ensure directories exist
-['../uploads', '../data'].forEach(dir => {
-    const fullPath = path.join(__dirname, dir);
-    if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true });
-    }
-});
-
-// Database paths
-const DB_PATH = path.join(__dirname, '../data/database.json');
-const SCREENS_PATH = path.join(__dirname, '../data/screens.json');
-const LOGS_PATH = path.join(__dirname, '../data/playback-logs.json');
-
-// Initialize databases
-function initDatabases() {
-    if (!fs.existsSync(DB_PATH)) {
-        const initialData = {
-            locations: {
-                'Delhi': {
-                    'New Delhi': {
-                        'New Delhi Junction': {
-                            platforms: {
-                                'Platform 1': { footfall: 'very-high', pricePerHour: 100, type: 'premium', screenId: 'NDLS-P1' },
-                                'Platform 2': { footfall: 'very-high', pricePerHour: 100, type: 'premium', screenId: 'NDLS-P2' },
-                                'Platform 3': { footfall: 'high', pricePerHour: 80, type: 'premium', screenId: 'NDLS-P3' },
-                                'Platform 4': { footfall: 'high', pricePerHour: 70, type: 'standard', screenId: 'NDLS-P4' },
-                                'Platform 5': { footfall: 'medium', pricePerHour: 50, type: 'standard', screenId: 'NDLS-P5' },
-                                'Platform 6': { footfall: 'low', pricePerHour: 30, type: 'economy', screenId: 'NDLS-P6' }
-                            }
-                        }
-                    }
-                },
-                'Uttar Pradesh': {
-                    'Kanpur': {
-                        'Kanpur Central (CNB)': {
-                            platforms: {
-                                'Platform 1': { footfall: 'very-high', pricePerHour: 80, type: 'premium', screenId: 'CNB-P1' },
-                                'Platform 2': { footfall: 'very-high', pricePerHour: 80, type: 'premium', screenId: 'CNB-P2' },
-                                'Platform 3': { footfall: 'high', pricePerHour: 65, type: 'premium', screenId: 'CNB-P3' },
-                                'Platform 4': { footfall: 'high', pricePerHour: 60, type: 'standard', screenId: 'CNB-P4' },
-                                'Platform 5': { footfall: 'high', pricePerHour: 55, type: 'standard', screenId: 'CNB-P5' },
-                                'Platform 6': { footfall: 'medium', pricePerHour: 40, type: 'standard', screenId: 'CNB-P6' },
-                                'Platform 7': { footfall: 'medium', pricePerHour: 35, type: 'economy', screenId: 'CNB-P7' },
-                                'Platform 8': { footfall: 'low', pricePerHour: 30, type: 'economy', screenId: 'CNB-P8' },
-                                'Platform 9': { footfall: 'low', pricePerHour: 25, type: 'economy', screenId: 'CNB-P9' },
-                                'Platform 10': { footfall: 'low', pricePerHour: 25, type: 'economy', screenId: 'CNB-P10' }
-                            }
-                        }
-                    }
-                }
-            },
-            bookings: [],
-            ads: [],
-            admin: { username: 'admin', password: 'admin123' }
-        };
-        fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
-    }
-
-    if (!fs.existsSync(SCREENS_PATH)) {
-        const screensData = {
-            screens: {},
-            activeConnections: {}
-        };
-        fs.writeFileSync(SCREENS_PATH, JSON.stringify(screensData, null, 2));
-    }
-
-    if (!fs.existsSync(LOGS_PATH)) {
-        fs.writeFileSync(LOGS_PATH, JSON.stringify({ logs: [] }, null, 2));
-    }
-}
-
-function getDatabase() {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-}
-
-function saveDatabase(data) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
-
-function getScreens() {
-    return JSON.parse(fs.readFileSync(SCREENS_PATH, 'utf8'));
-}
-
-function saveScreens(data) {
-    fs.writeFileSync(SCREENS_PATH, JSON.stringify(data, null, 2));
-}
-
-function logPlayback(screenId, bookingId, status) {
-    const logs = JSON.parse(fs.readFileSync(LOGS_PATH, 'utf8'));
-    logs.logs.push({
-        screenId,
-        bookingId,
-        status,
-        timestamp: new Date().toISOString()
-    });
-    fs.writeFileSync(LOGS_PATH, JSON.stringify(logs, null, 2));
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 // Multer config - platform-specific subfolders
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // Parse platforms from req.body (sent as JSON string)
         let platforms = ['default'];
         try {
             if (req.body.platforms) {
@@ -147,21 +90,16 @@ const storage = multer.diskStorage({
             console.error('Failed to parse platforms:', e);
         }
 
-        // Use first platform as primary folder (videos can be shared across platforms)
         const primaryPlatform = platforms[0] || 'default';
-        const platformFolder = primaryPlatform.replace(/\s+/g, '_'); // Replace spaces with underscores
-
+        const platformFolder = primaryPlatform.replace(/\s+/g, '_');
         const uploadPath = path.join(__dirname, '../uploads', platformFolder);
 
-        // Create platform subfolder if not exists
         if (!fs.existsSync(uploadPath)) {
             fs.mkdirSync(uploadPath, { recursive: true });
         }
 
-        // Store platforms info on req for later use
         req.platforms = platforms;
         req.platformFolder = platformFolder;
-
         cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
@@ -172,7 +110,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage,
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB
+    limits: { fileSize: 500 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         if (file.mimetype.startsWith('video/')) {
             cb(null, true);
@@ -195,61 +133,59 @@ wss.on('connection', (ws, req) => {
         screens.set(screenId, { ws, station, platform, connectedAt: new Date() });
         console.log(`Screen connected: ${screenId} (${station} - ${platform})`);
 
-        // Update screen status
-        const screensData = getScreens();
-        screensData.screens[screenId] = {
-            station,
-            platform,
-            status: 'online',
-            lastSeen: new Date().toISOString()
-        };
-        saveScreens(screensData);
+        // Update screen status in DB
+        if (useMongoDB) {
+            dbHelpers.updateScreen(screenId, { station, platform, status: 'online', connectedAt: new Date() });
+        }
 
-        // Send current playlist
         sendPlaylistToScreen(screenId);
     }
 
     ws.on('close', () => {
         if (screenId) {
             screens.delete(screenId);
-            const screensData = getScreens();
-            if (screensData.screens[screenId]) {
-                screensData.screens[screenId].status = 'offline';
-                screensData.screens[screenId].lastSeen = new Date().toISOString();
-                saveScreens(screensData);
+            if (useMongoDB) {
+                dbHelpers.updateScreen(screenId, { status: 'offline' });
             }
             console.log(`Screen disconnected: ${screenId}`);
         }
     });
 });
 
-function sendPlaylistToScreen(screenId) {
+async function sendPlaylistToScreen(screenId) {
     const screen = screens.get(screenId);
     if (!screen) return;
 
     const { station, platform } = screen;
-    const playlist = getPlaylistForScreen(station, platform);
+    const playlist = await getPlaylistForScreen(station, platform);
 
-    screen.ws.send(JSON.stringify({
-        type: 'playlist',
-        data: playlist
-    }));
+    if (screen.ws.readyState === WebSocket.OPEN) {
+        screen.ws.send(JSON.stringify({
+            type: 'playlist',
+            data: playlist
+        }));
+    }
 }
 
-function getPlaylistForScreen(station, platform) {
-    const db = getDatabase();
+async function getPlaylistForScreen(station, platform) {
     const now = new Date();
-
-    // Convert server time to IST (Asia/Calcutta) since all bookings use IST
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST = UTC + 5:30
+    const istOffset = 5.5 * 60 * 60 * 1000;
     const istDate = new Date(now.getTime() + istOffset);
     const today = istDate.toISOString().split('T')[0];
-    const currentHour = istDate.getUTCHours(); // getUTCHours on adjusted date = IST hours
+    const currentHour = istDate.getUTCHours();
 
     console.log(`[Playlist] Request for ${station}/${platform}, IST: ${today} ${currentHour}:00`);
 
-    // 1) Find active bookings (paid, today, current time slot)
-    const activeBookings = db.bookings.filter(b =>
+    let bookings = [];
+    let ads = [];
+
+    if (useMongoDB) {
+        bookings = await dbHelpers.getBookings();
+        ads = await dbHelpers.getAds();
+    }
+
+    // 1) Find active bookings
+    const activeBookings = bookings.filter(b =>
         b.station === station &&
         b.platforms.includes(platform) &&
         b.paymentStatus === 'completed' &&
@@ -260,16 +196,15 @@ function getPlaylistForScreen(station, platform) {
 
     console.log(`[Playlist] Found ${activeBookings.length} active bookings for current slot`);
 
-    // 2) Build playlist from active bookings
-    const playlist = activeBookings.map(b => {
-        const ad = db.ads.find(a => a.id === b.adId);
+    // 2) Build playlist
+    const playlist = [];
+    for (const b of activeBookings) {
+        const ad = ads.find(a => a.id === b.adId);
         if (!ad) {
             console.log(`[Playlist] Warning: Ad not found for booking ${b.id}`);
-            return null;
+            continue;
         }
 
-        // Check if the video file actually exists on disk
-        // BACKWARD COMPATIBILITY: Check new path (with platform folder) first, then old path (flat)
         let videoPath = path.join(__dirname, '..', ad.path);
         let fileExists = false;
         let actualPath = ad.path;
@@ -280,7 +215,7 @@ function getPlaylistForScreen(station, platform) {
             fileExists = false;
         }
 
-        // If not found and path has platform subfolder, try old flat uploads folder
+        // Backward compatibility - try old flat path
         if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
             const filename = path.basename(ad.path);
             const oldPath = path.join(__dirname, '../uploads', filename);
@@ -290,48 +225,40 @@ function getPlaylistForScreen(station, platform) {
                     actualPath = `/uploads/${filename}`;
                     console.log(`[Playlist] Found at legacy path: ${oldPath}`);
                 }
-            } catch (e) {
-                // Ignore
-            }
+            } catch (e) {}
         }
 
-        console.log(`[Playlist] Ad ${ad.id}: path=${ad.path}, exists=${fileExists}, actualPath=${actualPath}`);
+        console.log(`[Playlist] Ad ${ad.id}: exists=${fileExists}`);
 
-        return {
-            bookingId: b.id,
-            videoUrl: fileExists ? actualPath : null,
-            duration: ad ? ad.duration : 30,
-            customerName: b.customerName,
-            startTime: b.startTime,
-            hours: b.hours,
-            fileExists
-        };
-    }).filter(item => item !== null);
+        if (fileExists) {
+            playlist.push({
+                bookingId: b.id,
+                videoUrl: actualPath,
+                duration: ad.duration || 30,
+                customerName: b.customerName,
+                startTime: b.startTime,
+                hours: b.hours,
+                fileExists
+            });
+        }
+    }
 
-    console.log(`[Playlist] Built playlist with ${playlist.length} items (${playlist.filter(p => p.fileExists).length} with valid files)`);
+    console.log(`[Playlist] Built playlist with ${playlist.length} items`);
 
-    // 3) If no active bookings, fall back to ads that were booked for THIS specific platform
-    //    (even if their time slot expired). This prevents ads from leaking across platforms.
+    // 3) Fallback to any confirmed bookings for this platform
     if (playlist.length === 0) {
-        console.log(`[Playlist] No active bookings, checking fallback for ${station}/${platform}`);
+        console.log(`[Playlist] No active bookings, checking fallback`);
 
-        // Get all completed bookings for this station + platform (past, current, or future)
-        const platformBookings = db.bookings.filter(b =>
+        const platformBookings = bookings.filter(b =>
             b.station === station &&
             b.platforms.includes(platform) &&
             b.paymentStatus === 'completed'
         );
 
-        console.log(`[Playlist] Found ${platformBookings.length} total platform bookings for fallback`);
-
-        // Only show ads that were actually booked for this specific platform
         for (const b of platformBookings) {
-            const ad = db.ads.find(a => a.id === b.adId);
-            if (!ad) continue;
-            if (ad.status !== 'approved' && ad.status !== 'scheduled') continue;
+            const ad = ads.find(a => a.id === b.adId);
+            if (!ad || (ad.status !== 'approved' && ad.status !== 'scheduled')) continue;
 
-            // Check if the video file actually exists on disk
-            // BACKWARD COMPATIBILITY: Check new path (with platform folder) first, then old path (flat)
             let videoPath = path.join(__dirname, '..', ad.path);
             let fileExists = false;
             let actualPath = ad.path;
@@ -342,7 +269,6 @@ function getPlaylistForScreen(station, platform) {
                 fileExists = false;
             }
 
-            // If not found and path has platform subfolder, try old flat uploads folder
             if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
                 const filename = path.basename(ad.path);
                 const oldPath = path.join(__dirname, '../uploads', filename);
@@ -350,14 +276,9 @@ function getPlaylistForScreen(station, platform) {
                     if (fs.existsSync(oldPath)) {
                         fileExists = true;
                         actualPath = `/uploads/${filename}`;
-                        console.log(`[Playlist] Fallback found at legacy path: ${oldPath}`);
                     }
-                } catch (e) {
-                    // Ignore
-                }
+                } catch (e) {}
             }
-
-            console.log(`[Playlist] Fallback ad ${ad.id}: path=${ad.path}, exists=${fileExists}`);
 
             if (fileExists) {
                 playlist.push({
@@ -378,7 +299,6 @@ function getPlaylistForScreen(station, platform) {
     return playlist;
 }
 
-// Broadcast to all screens
 function broadcastToScreens(station, platform, message) {
     screens.forEach((screen, screenId) => {
         if (screen.station === station && screen.platform === platform) {
@@ -391,26 +311,27 @@ function broadcastToScreens(station, platform, message) {
 
 // API Routes
 
-// Get all screens status
-app.get('/api/screens', (req, res) => {
-    const screensData = getScreens();
-    const db = getDatabase();
+app.get('/api/screens', async (req, res) => {
+    let screensList = [];
+    if (useMongoDB) {
+        screensList = await dbHelpers.getScreens();
+    }
 
-    const screensWithDetails = Object.entries(screensData.screens).map(([id, screen]) => {
-        const location = findLocationByScreenId(db, id);
+    const screensWithDetails = screensList.map(screen => {
+        const location = findLocationByScreenId(screen.screenId);
         return {
-            id,
+            id: screen.screenId,
             ...screen,
             ...location,
-            isOnline: screens.has(id)
+            isOnline: screens.has(screen.screenId)
         };
     });
 
     res.json(screensWithDetails);
 });
 
-function findLocationByScreenId(db, screenId) {
-    for (const [state, districts] of Object.entries(db.locations)) {
+function findLocationByScreenId(screenId) {
+    for (const [state, districts] of Object.entries(LOCATIONS)) {
         for (const [district, stations] of Object.entries(districts)) {
             for (const [stationName, stationData] of Object.entries(stations)) {
                 for (const [platformName, platformData] of Object.entries(stationData.platforms)) {
@@ -424,18 +345,14 @@ function findLocationByScreenId(db, screenId) {
     return null;
 }
 
-// Get locations
 app.get('/api/locations', (req, res) => {
-    const db = getDatabase();
-    res.json(db.locations);
+    res.json(LOCATIONS);
 });
 
-// Calculate price
 app.post('/api/calculate-price', (req, res) => {
     const { state, district, station, platforms, hours, primeTime } = req.body;
-    const db = getDatabase();
+    const stationData = LOCATIONS[state]?.[district]?.[station];
 
-    const stationData = db.locations[state]?.[district]?.[station];
     if (!stationData) {
         return res.status(404).json({ error: 'Station not found' });
     }
@@ -447,9 +364,7 @@ app.post('/api/calculate-price', (req, res) => {
         const platform = stationData.platforms[platformName];
         if (platform) {
             let price = platform.pricePerHour * hours;
-            if (primeTime) {
-                price *= 1.5;
-            }
+            if (primeTime) price *= 1.5;
             totalPrice += price;
             platformDetails.push({
                 name: platformName,
@@ -476,45 +391,29 @@ app.post('/api/calculate-price', (req, res) => {
     });
 });
 
-// Upload video with error handling
 app.post('/api/upload', (req, res) => {
-    upload.single('video')(req, res, (err) => {
+    upload.single('video')(req, res, async (err) => {
         if (err) {
             console.error('Upload error:', err);
             if (err.code === 'LIMIT_FILE_SIZE') {
-                return res.status(413).json({
-                    error: 'File too large. Max 500MB allowed.',
-                    code: 'FILE_TOO_LARGE'
-                });
+                return res.status(413).json({ error: 'File too large. Max 500MB allowed.', code: 'FILE_TOO_LARGE' });
             }
             if (err.message === 'Only video files allowed') {
-                return res.status(400).json({
-                    error: 'Only video files (MP4, MOV, AVI) are allowed.',
-                    code: 'INVALID_FILE_TYPE'
-                });
+                return res.status(400).json({ error: 'Only video files allowed.', code: 'INVALID_FILE_TYPE' });
             }
-            return res.status(500).json({
-                error: 'Upload failed. Please try again.',
-                code: 'UPLOAD_ERROR'
-            });
+            return res.status(500).json({ error: 'Upload failed.', code: 'UPLOAD_ERROR' });
         }
 
         if (!req.file) {
-            return res.status(400).json({
-                error: 'No video file received.',
-                code: 'NO_FILE'
-            });
+            return res.status(400).json({ error: 'No video file received.', code: 'NO_FILE' });
         }
 
         try {
             const adId = uuidv4();
-            const db = getDatabase();
-
-            // Build platform-specific path
             const platformFolder = req.platformFolder || 'default';
             const adPath = `/uploads/${platformFolder}/${req.file.filename}`;
 
-            const ad = {
+            const adData = {
                 id: adId,
                 filename: req.file.filename,
                 originalName: req.file.originalname,
@@ -522,14 +421,13 @@ app.post('/api/upload', (req, res) => {
                 platforms: req.platforms || ['default'],
                 platformFolder: platformFolder,
                 size: req.file.size,
-                uploadedAt: new Date().toISOString(),
                 status: 'pending',
-                moderationResult: null,
                 duration: req.body.duration || 30
             };
 
-            db.ads.push(ad);
-            saveDatabase(db);
+            if (useMongoDB) {
+                await dbHelpers.createAd(adData);
+            }
 
             // Simulate AI moderation
             setTimeout(() => runAIModeration(adId), 2000);
@@ -537,53 +435,42 @@ app.post('/api/upload', (req, res) => {
             res.json({
                 success: true,
                 adId,
-                message: 'Video uploaded successfully. AI moderation in progress...'
+                message: 'Video uploaded. AI moderation in progress...'
             });
         } catch (error) {
-            console.error('Server error during upload:', error);
-            res.status(500).json({
-                error: 'Server error. Please try again.',
-                code: 'SERVER_ERROR'
-            });
+            console.error('Server error:', error);
+            res.status(500).json({ error: 'Server error.', code: 'SERVER_ERROR' });
         }
     });
 });
 
-function runAIModeration(adId) {
-    const db = getDatabase();
-    const ad = db.ads.find(a => a.id === adId);
+async function runAIModeration(adId) {
+    if (!useMongoDB) return;
 
-    if (ad) {
-        ad.status = 'analyzing';
-        saveDatabase(db);
+    await dbHelpers.updateAd(adId, { status: 'analyzing' });
 
-        setTimeout(() => {
-            const db2 = getDatabase();
-            const ad2 = db2.ads.find(a => a.id === adId);
-
-            if (ad2) {
-                // DEMO: Auto-approve all videos (for production, use real AI)
-                ad2.status = 'approved';
-                ad2.moderationResult = {
-                    checkedAt: new Date().toISOString(),
-                    nsfw: false,
-                    violence: false,
-                    political: false,
-                    confidence: 0.98,
-                    approved: true,
-                    reason: 'Content meets guidelines'
-                };
-                saveDatabase(db2);
+    setTimeout(async () => {
+        await dbHelpers.updateAd(adId, {
+            status: 'approved',
+            moderationResult: {
+                checkedAt: new Date(),
+                nsfw: false,
+                violence: false,
+                political: false,
+                confidence: 0.98,
+                approved: true,
+                reason: 'Content meets guidelines'
             }
-        }, 3000);
-    }
+        });
+    }, 3000);
 }
 
-// Get ad status
-app.get('/api/ad/:adId/status', (req, res) => {
-    const db = getDatabase();
-    const ad = db.ads.find(a => a.id === req.params.adId);
+app.get('/api/ad/:adId/status', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
 
+    const ad = await dbHelpers.getAdById(req.params.adId);
     if (!ad) {
         return res.status(404).json({ error: 'Ad not found' });
     }
@@ -596,20 +483,22 @@ app.get('/api/ad/:adId/status', (req, res) => {
     });
 });
 
-// Create booking
-app.post('/api/book', (req, res) => {
+app.post('/api/book', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available. Cannot create booking.' });
+    }
+
     const { adId, state, district, station, platforms, hours, startTime, date, primeTime,
             customerName, customerEmail, customerPhone, priceDetails } = req.body;
 
-    const db = getDatabase();
-    const ad = db.ads.find(a => a.id === adId);
-
+    const ad = await dbHelpers.getAdById(adId);
     if (!ad || ad.status !== 'approved') {
         return res.status(400).json({ error: 'Ad not approved' });
     }
 
-    // Check for existing bookings in same slot (for information)
-    const existingBookings = db.bookings.filter(b =>
+    // Check for existing bookings
+    const bookings = await dbHelpers.getBookings();
+    const existingBookings = bookings.filter(b =>
         b.station === station &&
         b.platforms.some(p => platforms.includes(p)) &&
         b.date === date &&
@@ -620,7 +509,7 @@ app.post('/api/book', (req, res) => {
 
     const bookingId = 'BK' + Date.now().toString(36).toUpperCase();
 
-    const booking = {
+    const bookingData = {
         id: bookingId,
         adId,
         state, district, station, platforms,
@@ -628,62 +517,51 @@ app.post('/api/book', (req, res) => {
         customerName, customerEmail, customerPhone,
         priceDetails,
         paymentStatus: 'pending',
-        bookingStatus: 'pending',
-        createdAt: new Date().toISOString(),
-        scheduledAt: null,
-        completedAt: null
+        bookingStatus: 'pending'
     };
 
-    db.bookings.push(booking);
-    ad.status = 'scheduled';
-    ad.bookingId = bookingId;
-
-    saveDatabase(db);
-
-    // Prepare message
-    let message = 'Booking created';
-    if (existingBookings.length > 0) {
-        message = `Booking created. Your ad will be in rotation with ${existingBookings.length} other ad(s) during this time slot.`;
-    }
+    await dbHelpers.createBooking(bookingData);
+    await dbHelpers.updateAd(adId, { status: 'scheduled', bookingId });
 
     res.json({
         success: true,
         bookingId,
-        message,
+        message: existingBookings.length > 0
+            ? `Booking created. Your ad will rotate with ${existingBookings.length} other ad(s).`
+            : 'Booking created',
         existingAds: existingBookings.length,
         rotationEnabled: true
     });
 });
 
-// Process payment
-app.post('/api/payment', (req, res) => {
+app.post('/api/payment', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
     const { bookingId, paymentMethod } = req.body;
-    const db = getDatabase();
-    const booking = db.bookings.find(b => b.id === bookingId);
+    const booking = await dbHelpers.getBookingById(bookingId);
 
     if (!booking) {
         return res.status(404).json({ error: 'Booking not found' });
     }
 
-    setTimeout(() => {
-        const db2 = getDatabase();
-        const booking2 = db2.bookings.find(b => b.id === bookingId);
+    // Process payment asynchronously
+    setTimeout(async () => {
+        await dbHelpers.updateBooking(bookingId, {
+            paymentStatus: 'completed',
+            bookingStatus: 'confirmed',
+            paymentMethod,
+            paidAt: new Date()
+        });
 
-        if (booking2) {
-            booking2.paymentStatus = 'completed';
-            booking2.bookingStatus = 'confirmed';
-            booking2.paymentMethod = paymentMethod;
-            booking2.paidAt = new Date().toISOString();
-            saveDatabase(db2);
-
-            // Notify screens
-            booking2.platforms.forEach(platform => {
-                broadcastToScreens(booking2.station, platform, {
-                    type: 'new-booking',
-                    bookingId: booking2.id
-                });
+        // Notify screens
+        booking.platforms.forEach(platform => {
+            broadcastToScreens(booking.station, platform, {
+                type: 'new-booking',
+                bookingId
             });
-        }
+        });
     }, 1500);
 
     res.json({
@@ -693,83 +571,78 @@ app.post('/api/payment', (req, res) => {
     });
 });
 
-// Get booking
-app.get('/api/booking/:bookingId', (req, res) => {
-    const db = getDatabase();
-    const booking = db.bookings.find(b => b.id === req.params.bookingId);
+app.get('/api/booking/:bookingId', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
 
+    const booking = await dbHelpers.getBookingById(req.params.bookingId);
     if (!booking) {
         return res.status(404).json({ error: 'Booking not found' });
     }
 
-    const ad = db.ads.find(a => a.id === booking.adId);
-
+    const ad = await dbHelpers.getAdById(booking.adId);
     res.json({
         ...booking,
         ad: ad ? { path: ad.path, duration: ad.duration } : null
     });
 });
 
-// Get playlist for player (HTTP polling fallback)
-app.get('/api/player/:station/:platform/playlist', (req, res) => {
+app.get('/api/player/:station/:platform/playlist', async (req, res) => {
     const { station, platform } = req.params;
-    const playlist = getPlaylistForScreen(station, platform);
+    const playlist = await getPlaylistForScreen(station, platform);
 
     res.json({
         station,
         platform,
         currentTime: new Date().toISOString(),
-        playlist: playlist.length > 0 ? playlist : [{
-            type: 'filler',
-            message: 'No active ads'
-        }]
+        playlist: playlist.length > 0 ? playlist : [{ type: 'filler', message: 'No active ads' }]
     });
 });
 
 // Admin routes
 app.post('/api/admin/login', (req, res) => {
     const { username, password } = req.body;
-    const db = getDatabase();
-
-    if (username === db.admin.username && password === db.admin.password) {
+    if (username === ADMIN_CREDS.username && password === ADMIN_CREDS.password) {
         res.json({ success: true, token: 'admin-token-' + Date.now() });
     } else {
         res.status(401).json({ error: 'Invalid credentials' });
     }
 });
 
-app.get('/api/admin/bookings', (req, res) => {
-    const db = getDatabase();
-    const bookings = db.bookings.map(b => {
-        const ad = db.ads.find(a => a.id === b.adId);
+app.get('/api/admin/bookings', async (req, res) => {
+    if (!useMongoDB) {
+        return res.json([]);
+    }
+
+    const bookings = await dbHelpers.getBookings();
+    const ads = await dbHelpers.getAds();
+
+    const bookingsWithAds = bookings.map(b => {
+        const ad = ads.find(a => a.id === b.adId);
         return { ...b, ad: ad ? { path: ad.path, status: ad.status } : null };
     });
-    res.json(bookings);
+
+    res.json(bookingsWithAds);
 });
 
-app.get('/api/admin/stats', (req, res) => {
-    const db = getDatabase();
-    const screensData = getScreens();
+app.get('/api/admin/stats', async (req, res) => {
+    if (!useMongoDB) {
+        return res.json({
+            totalBookings: 0, totalRevenue: 0, pendingAds: 0,
+            approvedAds: 0, scheduledAds: 0, onlineScreens: 0,
+            activeStations: 2, totalPlatforms: 16, totalScreens: 0
+        });
+    }
 
-    const totalBookings = db.bookings.length;
-    const totalRevenue = db.bookings
-        .filter(b => b.paymentStatus === 'completed')
-        .reduce((sum, b) => sum + (b.priceDetails?.total || 0), 0);
-    const pendingAds = db.ads.filter(a => a.status === 'pending').length;
-    const approvedAds = db.ads.filter(a => a.status === 'approved').length;
-    const scheduledAds = db.ads.filter(a => a.status === 'scheduled').length;
-    const onlineScreens = Array.from(screens.values()).filter(s => s.ws.readyState === WebSocket.OPEN).length;
+    const stats = await dbHelpers.getStats();
+    const screensList = await dbHelpers.getScreens();
 
     res.json({
-        totalBookings,
-        totalRevenue,
-        pendingAds,
-        approvedAds,
-        scheduledAds,
+        ...stats,
         activeStations: 2,
         totalPlatforms: 16,
-        onlineScreens,
-        totalScreens: Object.keys(screensData.screens).length
+        totalScreens: screensList.length
     });
 });
 
@@ -779,11 +652,22 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: err.message || 'Server error' });
 });
 
-// Initialize and start
-initDatabases();
+// Root route
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, '../player/booking.html'));
+});
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`
+app.get('/admin.html', (req, res) => {
+    res.sendFile(path.join(__dirname, '../admin/admin.html'));
+});
+
+// Start server
+async function startServer() {
+    // Try to connect to MongoDB
+    useMongoDB = await connectDB();
+
+    server.listen(PORT, '0.0.0.0', () => {
+        console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║     DOOH Platform - Production Multi-Screen Server         ║
 ╚════════════════════════════════════════════════════════════╝
@@ -792,27 +676,16 @@ server.listen(PORT, '0.0.0.0', () => {
    Local:   http://localhost:${PORT}
    Network: http://0.0.0.0:${PORT}
 
+💾 Database: ${useMongoDB ? '✅ MongoDB (Persistent)' : '⚠️  File-based (Ephemeral)'}
+
 📺 Screen URLs:
    Kanpur Platform 1:  http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%201&screenId=CNB-P1
-   Kanpur Platform 2:  http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%202&screenId=CNB-P2
-   ...
-   Kanpur Platform 10: http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%2010&screenId=CNB-P10
 
 🔧 Admin Panel: http://YOUR_IP:${PORT}/admin.html
 
-💡 Multi-Screen Setup:
-   1. Find your IP: ipconfig (Windows) / ifconfig (Mac/Linux)
-   2. Open player URLs on different laptops
-   3. Each screen auto-connects via WebSocket
-   4. Ads sync automatically across all screens
-
-⚡ Features:
-   ✓ WebSocket real-time sync
-   ✓ HTTP polling fallback
-   ✓ Screen status monitoring
-   ✓ Playback logging
-   ✓ Multi-platform support
-
 ═══════════════════════════════════════════════════════════════
-    `);
-});
+        `);
+    });
+}
+
+startServer();
