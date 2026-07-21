@@ -69,16 +69,7 @@ const bookingSchema = new mongoose.Schema({
     customerEmail: { type: String, required: true },
     customerPhone: { type: String, required: true },
     priceDetails: {
-        platforms: [{
-            name: String,
-            type: String,
-            footfall: String,
-            pricePerHour: Number,
-            hours: Number,
-            primeTime: Boolean,
-            subtotal: Number,
-            screenId: String
-        }],
+        platforms: { type: mongoose.Schema.Types.Mixed, default: [] },
         subtotal: Number,
         gst: Number,
         total: Number,
