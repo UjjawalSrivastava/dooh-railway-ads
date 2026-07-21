@@ -1,19 +1,25 @@
 /**
  * MongoDB Database Configuration
- * Persistent storage for DOOH Platform
+ * Persistent storage for DOOH Platform with GridFS for videos
  */
 
 const mongoose = require('mongoose');
+let gfsBucket = null;
 
 // MongoDB Connection
 const connectDB = async () => {
     try {
         const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dooh-platform';
 
-        await mongoose.connect(mongoURI, {
+        const conn = await mongoose.connect(mongoURI, {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
+        });
+
+        // Initialize GridFS bucket
+        gfsBucket = new mongoose.mongo.GridFSBucket(conn.connection.db, {
+            bucketName: 'videos'
         });
 
         console.log('✅ MongoDB Connected Successfully');
@@ -22,6 +28,57 @@ const connectDB = async () => {
         console.error('❌ MongoDB Connection Error:', error.message);
         console.log('⚠️  Falling back to file-based storage (data will be lost on restart)');
         return false;
+    }
+};
+
+// Get GridFS bucket instance
+const getGFSBucket = () => {
+    if (!gfsBucket) {
+        throw new Error('GridFS not initialized. Connect to MongoDB first.');
+    }
+    return gfsBucket;
+};
+
+// GridFS Helper Functions
+const gridfsHelpers = {
+    // Upload file to GridFS
+    uploadFile(fileBuffer, filename, metadata = {}) {
+        return new Promise((resolve, reject) => {
+            const bucket = getGFSBucket();
+            const uploadStream = bucket.openUploadStream(filename, {
+                metadata: metadata
+            });
+
+            uploadStream.on('error', (err) => reject(err));
+            uploadStream.on('finish', (file) => resolve(file));
+
+            uploadStream.end(fileBuffer);
+        });
+    },
+
+    // Download file from GridFS
+    downloadFile(fileId) {
+        const bucket = getGFSBucket();
+        return bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+    },
+
+    // Delete file from GridFS
+    async deleteFile(fileId) {
+        const bucket = getGFSBucket();
+        await bucket.delete(new mongoose.Types.ObjectId(fileId));
+        return true;
+    },
+
+    // Find file by ID
+    async findFile(fileId) {
+        const bucket = getGFSBucket();
+        const files = await bucket.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
+        return files[0] || null;
+    },
+
+    // Check if GridFS is available
+    isAvailable() {
+        return gfsBucket !== null;
     }
 };
 
@@ -235,6 +292,8 @@ const dbHelpers = {
 
 module.exports = {
     connectDB,
+    getGFSBucket,
+    gridfsHelpers,
     Ad,
     Booking,
     Screen,

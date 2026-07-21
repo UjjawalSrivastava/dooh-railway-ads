@@ -14,7 +14,7 @@ const WebSocket = require('ws');
 const http = require('http');
 require('dotenv').config();
 
-const { connectDB, dbHelpers } = require('./db');
+const { connectDB, dbHelpers, gridfsHelpers } = require('./db');
 const { seedDatabase } = require('./seed');
 // const setupWizard = require('./setup');  // Temporarily disabled
 
@@ -459,13 +459,39 @@ app.post('/api/upload', (req, res) => {
         try {
             const adId = uuidv4();
             const platformFolder = req.platformFolder || 'default';
-            const adPath = `/uploads/${platformFolder}/${req.file.filename}`;
+
+            let videoUrl;
+            let gridfsFileId = null;
+
+            // Upload to GridFS if MongoDB is available
+            if (useMongoDB && gridfsHelpers.isAvailable()) {
+                const fileBuffer = fs.readFileSync(req.file.path);
+                const gridFile = await gridfsHelpers.uploadFile(
+                    fileBuffer,
+                    req.file.filename,
+                    {
+                        originalName: req.file.originalname,
+                        platformFolder: platformFolder,
+                        adId: adId,
+                        contentType: req.file.mimetype
+                    }
+                );
+                gridfsFileId = gridFile._id.toString();
+                videoUrl = `/api/video/${gridfsFileId}`;
+
+                // Delete temp file after GridFS upload
+                fs.unlinkSync(req.file.path);
+            } else {
+                // Fallback to file system (ephemeral on Render)
+                videoUrl = `/uploads/${platformFolder}/${req.file.filename}`;
+            }
 
             const adData = {
                 id: adId,
                 filename: req.file.filename,
                 originalName: req.file.originalname,
-                path: adPath,
+                path: videoUrl,
+                gridfsFileId: gridfsFileId,
                 platforms: req.platforms || ['default'],
                 platformFolder: platformFolder,
                 size: req.file.size,
@@ -490,6 +516,51 @@ app.post('/api/upload', (req, res) => {
             res.status(500).json({ error: 'Server error.', code: 'SERVER_ERROR' });
         }
     });
+});
+
+// GridFS Video Streaming Endpoint
+app.get('/api/video/:fileId', async (req, res) => {
+    try {
+        if (!useMongoDB || !gridfsHelpers.isAvailable()) {
+            return res.status(503).json({ error: 'Video storage not available' });
+        }
+
+        const fileId = req.params.fileId;
+        const file = await gridfsHelpers.findFile(fileId);
+
+        if (!file) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        // Set proper content type
+        res.set('Content-Type', file.metadata?.contentType || 'video/mp4');
+        res.set('Accept-Ranges', 'bytes');
+
+        // Handle range requests for video seeking
+        const range = req.headers.range;
+        if (range) {
+            const parts = range.replace(/bytes=/, '').split('-');
+            const start = parseInt(parts[0], 10);
+            const end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
+            const chunksize = end - start + 1;
+
+            res.status(206);
+            res.set('Content-Range', `bytes ${start}-${end}/${file.length}`);
+            res.set('Content-Length', chunksize);
+
+            const downloadStream = gridfsHelpers.downloadFile(fileId);
+            downloadStream.start(start);
+            downloadStream.end(end);
+            downloadStream.pipe(res);
+        } else {
+            res.set('Content-Length', file.length);
+            const downloadStream = gridfsHelpers.downloadFile(fileId);
+            downloadStream.pipe(res);
+        }
+    } catch (error) {
+        console.error('[GridFS] Error streaming video:', error.message);
+        res.status(500).json({ error: 'Failed to stream video' });
+    }
 });
 
 async function runAIModeration(adId) {
