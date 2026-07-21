@@ -841,6 +841,7 @@
     <script>
         const API_URL = '/api';
         let currentAdId = null;
+        let currentAdStatus = null;
         let authToken = localStorage.getItem('adminToken');
 
         // Check auth on load
@@ -973,10 +974,13 @@
                     return;
                 }
 
-                tbody.innerHTML = ads.map(ad => `
+                tbody.innerHTML = ads.map(ad => {
+                    // Use GridFS URL if available, else fallback to path
+                    const videoUrl = ad.gridfsFileId ? `/api/video/${ad.gridfsFileId}` : ad.path;
+                    return `
                     <tr>
                         <td>
-                            <div class="video-thumb" onclick="previewAd('${ad.id}', '${ad.path}')">
+                            <div class="video-thumb" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">
                                 ▶️
                             </div>
                         </td>
@@ -987,36 +991,80 @@
                         <td>
                             ${ad.status === 'pending' || ad.status === 'analyzing' ?
                                 '<span>Auto-moderating...</span>' :
-                                `<button class="btn btn-secondary" onclick="previewAd('${ad.id}', '${ad.path}')">View</button>`
+                                `<button class="btn btn-secondary" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">View</button>`
                             }
                         </td>
                     </tr>
-                `).join('');
+                `}).join('');
             } catch (err) {
                 console.error('Failed to load ads:', err);
             }
         }
 
-        function previewAd(adId, path) {
+        function previewAd(adId, videoUrl, status) {
             currentAdId = adId;
-            // Use relative URL to work with any domain
-            document.getElementById('modal-video').src = path;
+            currentAdStatus = status;
+            document.getElementById('modal-video').src = videoUrl;
             document.getElementById('video-modal').classList.add('active');
+
+            // Show/hide approve/reject buttons based on status
+            const actionsDiv = document.querySelector('.modal-actions');
+            if (actionsDiv) {
+                if (status === 'pending') {
+                    actionsDiv.innerHTML = `
+                        <button class="btn btn-danger" onclick="rejectAd()">Reject</button>
+                        <button class="btn btn-success" onclick="approveAd()">Approve</button>
+                    `;
+                } else if (status === 'approved') {
+                    actionsDiv.innerHTML = `<span class="badge badge-approved">Already Approved</span>`;
+                } else if (status === 'rejected') {
+                    actionsDiv.innerHTML = `<span class="badge badge-rejected">Rejected</span>`;
+                } else {
+                    actionsDiv.innerHTML = '';
+                }
+            }
         }
 
         function closeModal() {
             document.getElementById('video-modal').classList.remove('active');
             document.getElementById('modal-video').pause();
             currentAdId = null;
+            currentAdStatus = null;
         }
 
-        function approveAd() {
+        async function approveAd() {
+            if (!currentAdId) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/ads/${currentAdId}/approve`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Ad approved!');
+                }
+            } catch (err) {
+                console.error('Approve failed:', err);
+            }
             closeModal();
             loadAds();
             loadStats();
         }
 
-        function rejectAd() {
+        async function rejectAd() {
+            if (!currentAdId) return;
+            try {
+                const res = await fetch(`${API_URL}/admin/ads/${currentAdId}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: 'Rejected by admin' })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Ad rejected!');
+                }
+            } catch (err) {
+                console.error('Reject failed:', err);
+            }
             closeModal();
             loadAds();
             loadStats();

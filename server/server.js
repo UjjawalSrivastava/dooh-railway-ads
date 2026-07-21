@@ -602,6 +602,70 @@ app.get('/api/ad/:adId/status', async (req, res) => {
     });
 });
 
+// Admin: Approve Ad
+app.post('/api/admin/ads/:adId/approve', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const ad = await dbHelpers.getAdById(req.params.adId);
+        if (!ad) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        await dbHelpers.updateAd(req.params.adId, {
+            status: 'approved',
+            moderationResult: {
+                checkedAt: new Date(),
+                nsfw: false,
+                violence: false,
+                political: false,
+                confidence: 0.98,
+                approved: true,
+                reason: 'Manually approved by admin'
+            }
+        });
+
+        res.json({ success: true, message: 'Ad approved' });
+    } catch (error) {
+        console.error('[Admin] Approve error:', error);
+        res.status(500).json({ error: 'Failed to approve ad' });
+    }
+});
+
+// Admin: Reject Ad
+app.post('/api/admin/ads/:adId/reject', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const ad = await dbHelpers.getAdById(req.params.adId);
+        if (!ad) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        await dbHelpers.updateAd(req.params.adId, {
+            status: 'rejected',
+            moderationResult: {
+                checkedAt: new Date(),
+                nsfw: false,
+                violence: false,
+                political: false,
+                confidence: 0.5,
+                approved: false,
+                reason: req.body.reason || 'Manually rejected by admin'
+            }
+        });
+
+        res.json({ success: true, message: 'Ad rejected' });
+    } catch (error) {
+        console.error('[Admin] Reject error:', error);
+        res.status(500).json({ error: 'Failed to reject ad' });
+    }
+});
+
 app.post('/api/book', async (req, res) => {
     try {
         if (!useMongoDB) {
