@@ -61,10 +61,54 @@ const LOCATIONS = {
     }
 };
 
-// Admin credentials (can be moved to env vars)
+// File-based database paths (fallback when MongoDB unavailable)
+const DB_PATH = path.join(__dirname, '../data/database.json');
+const SCREENS_PATH = path.join(__dirname, '../data/screens.json');
+
+// Ensure data directory exists
+const dataDir = path.join(__dirname, '../data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
+
+// Initialize file-based database
+function initFileDatabase() {
+    if (!fs.existsSync(DB_PATH)) {
+        const initialData = {
+            locations: LOCATIONS,
+            bookings: [],
+            ads: [],
+            admin: { username: 'admin', password: 'admin123' }
+        };
+        fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
+    }
+
+    if (!fs.existsSync(SCREENS_PATH)) {
+        fs.writeFileSync(SCREENS_PATH, JSON.stringify({ screens: {} }, null, 2));
+    }
+}
+
+// File-based DB helpers
+function getFileDatabase() {
+    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+}
+
+function saveFileDatabase(data) {
+    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+}
+
+function getFileScreens() {
+    return JSON.parse(fs.readFileSync(SCREENS_PATH, 'utf8'));
+}
+
+function saveFileScreens(data) {
+    fs.writeFileSync(SCREENS_PATH, JSON.stringify(data, null, 2));
+}
+
+// Admin credentials (fallback)
 const ADMIN_CREDS = {
-    username: process.env.ADMIN_USERNAME || 'admin',
-    password: process.env.ADMIN_PASSWORD || 'admin123'
+    username: 'admin',
+    password: 'admin123'
 };
 
 // Middleware
@@ -670,28 +714,22 @@ async function startServer() {
     // Check for MongoDB URI
     const mongoUri = process.env.MONGODB_URI;
 
-    if (!mongoUri) {
-        console.error('❌ MONGODB_URI environment variable is required!');
-        console.error('');
-        console.error('📝 To fix this:');
-        console.error('   1. Get free MongoDB Atlas URI from https://www.mongodb.com/atlas');
-        console.error('   2. Add MONGODB_URI to your environment variables');
-        console.error('   3. Restart the server');
-        console.error('');
-        console.error('📖 Format: mongodb+srv://username:password@cluster.mongodb.net/dooh-platform');
-        process.exit(1);
+    if (mongoUri) {
+        // Try to connect to MongoDB
+        useMongoDB = await connectDB();
+
+        if (useMongoDB) {
+            // Seed database with default data
+            await seedDatabase();
+            console.log('✅ Using MongoDB for persistent storage');
+        } else {
+            console.log('⚠️ MongoDB connection failed, using file-based storage (ephemeral)');
+            initFileDatabase();
+        }
+    } else {
+        console.log('⚠️ MONGODB_URI not set, using file-based storage (ephemeral)');
+        initFileDatabase();
     }
-
-    // Connect to MongoDB
-    useMongoDB = await connectDB();
-
-    if (!useMongoDB) {
-        console.error('❌ Failed to connect to MongoDB. Check your MONGODB_URI.');
-        process.exit(1);
-    }
-
-    // Seed database with default data
-    await seedDatabase();
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`
@@ -703,7 +741,8 @@ async function startServer() {
    Local:   http://localhost:${PORT}
    Network: http://0.0.0.0:${PORT}
 
-💾 Database: ✅ MongoDB Connected (Persistent)
+💾 Database: ${useMongoDB ? '✅ MongoDB (Persistent)' : '⚠️  File-based (Ephemeral)'}
+${!useMongoDB ? '   Set MONGODB_URI for persistent storage' : ''}
 
 📺 Screen URLs:
    Kanpur Platform 1:  http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%201&screenId=CNB-P1
