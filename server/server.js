@@ -469,7 +469,7 @@ app.post('/api/upload', (req, res) => {
                 platforms: req.platforms || ['default'],
                 platformFolder: platformFolder,
                 size: req.file.size,
-                status: 'pending',
+                status: 'approved',
                 duration: req.body.duration || 30
             };
 
