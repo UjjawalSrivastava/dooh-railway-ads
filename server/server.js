@@ -269,30 +269,37 @@ function getPlaylistForScreen(station, platform) {
         }
 
         // Check if the video file actually exists on disk
-        const videoPath = path.join(__dirname, '..', ad.path);
+        // BACKWARD COMPATIBILITY: Check new path (with platform folder) first, then old path (flat)
+        let videoPath = path.join(__dirname, '..', ad.path);
         let fileExists = false;
+        let actualPath = ad.path;
+
         try {
             fileExists = fs.existsSync(videoPath);
         } catch (e) {
             fileExists = false;
         }
 
-        console.log(`[Playlist] Ad ${ad.id}: path=${ad.path}, exists=${fileExists}`);
-
-        // If file doesn't exist, try without the leading slash
-        if (!fileExists && ad.path.startsWith('/')) {
-            const altPath = path.join(__dirname, '..', ad.path.slice(1));
+        // If not found and path has platform subfolder, try old flat uploads folder
+        if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
+            const filename = path.basename(ad.path);
+            const oldPath = path.join(__dirname, '../uploads', filename);
             try {
-                fileExists = fs.existsSync(altPath);
-                if (fileExists) console.log(`[Playlist] Found at alt path: ${altPath}`);
+                if (fs.existsSync(oldPath)) {
+                    fileExists = true;
+                    actualPath = `/uploads/${filename}`;
+                    console.log(`[Playlist] Found at legacy path: ${oldPath}`);
+                }
             } catch (e) {
-                fileExists = false;
+                // Ignore
             }
         }
 
+        console.log(`[Playlist] Ad ${ad.id}: path=${ad.path}, exists=${fileExists}, actualPath=${actualPath}`);
+
         return {
             bookingId: b.id,
-            videoUrl: fileExists ? ad.path : null,
+            videoUrl: fileExists ? actualPath : null,
             duration: ad ? ad.duration : 30,
             customerName: b.customerName,
             startTime: b.startTime,
@@ -324,19 +331,29 @@ function getPlaylistForScreen(station, platform) {
             if (ad.status !== 'approved' && ad.status !== 'scheduled') continue;
 
             // Check if the video file actually exists on disk
-            const videoPath = path.join(__dirname, '..', ad.path);
+            // BACKWARD COMPATIBILITY: Check new path (with platform folder) first, then old path (flat)
+            let videoPath = path.join(__dirname, '..', ad.path);
             let fileExists = false;
+            let actualPath = ad.path;
+
             try {
                 fileExists = fs.existsSync(videoPath);
             } catch (e) {
                 fileExists = false;
             }
-            if (!fileExists && ad.path.startsWith('/')) {
-                const altPath = path.join(__dirname, '..', ad.path.slice(1));
+
+            // If not found and path has platform subfolder, try old flat uploads folder
+            if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
+                const filename = path.basename(ad.path);
+                const oldPath = path.join(__dirname, '../uploads', filename);
                 try {
-                    fileExists = fs.existsSync(altPath);
+                    if (fs.existsSync(oldPath)) {
+                        fileExists = true;
+                        actualPath = `/uploads/${filename}`;
+                        console.log(`[Playlist] Fallback found at legacy path: ${oldPath}`);
+                    }
                 } catch (e) {
-                    fileExists = false;
+                    // Ignore
                 }
             }
 
@@ -345,7 +362,7 @@ function getPlaylistForScreen(station, platform) {
             if (fileExists) {
                 playlist.push({
                     bookingId: b.id,
-                    videoUrl: ad.path,
+                    videoUrl: actualPath,
                     duration: ad.duration || 30,
                     customerName: b.customerName,
                     startTime: b.startTime,
