@@ -15,6 +15,7 @@ const http = require('http');
 require('dotenv').config();
 
 const { connectDB, dbHelpers } = require('./db');
+const setupWizard = require('./setup');
 
 const app = express();
 const server = http.createServer(app);
@@ -68,6 +69,36 @@ const ADMIN_CREDS = {
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Setup Wizard - Must be before static routes
+setupWizard.setupRoutes(app);
+app.use('/setup', express.static(path.join(__dirname, '../setup')));
+
+// Check if setup is required
+app.use((req, res, next) => {
+    // Allow setup routes to pass through
+    if (req.path.startsWith('/setup') || req.path.startsWith('/api/setup')) {
+        return next();
+    }
+
+    // Check if setup is complete
+    if (!setupWizard.isSetupComplete()) {
+        // API requests get JSON response
+        if (req.path.startsWith('/api/')) {
+            return res.status(503).json({
+                error: 'Setup required',
+                message: 'Please complete setup at /setup',
+                setupUrl: '/setup'
+            });
+        }
+        // Web requests get redirect
+        return res.redirect('/setup');
+    }
+
+    next();
+});
+
+// Static files
 app.use(express.static(path.join(__dirname, '../player')));
 app.use('/admin', express.static(path.join(__dirname, '../admin')));
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -663,8 +694,17 @@ app.get('/admin.html', (req, res) => {
 
 // Start server
 async function startServer() {
-    // Try to connect to MongoDB
-    useMongoDB = await connectDB();
+    // Check if setup is complete before connecting to database
+    if (setupWizard.isSetupComplete()) {
+        const config = setupWizard.getConfig();
+        if (config && config.mongoUri) {
+            process.env.MONGODB_URI = config.mongoUri;
+        }
+        // Try to connect to MongoDB
+        useMongoDB = await connectDB();
+    } else {
+        console.log('⚙️  Setup required - visit /setup to configure database');
+    }
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`
@@ -676,7 +716,9 @@ async function startServer() {
    Local:   http://localhost:${PORT}
    Network: http://0.0.0.0:${PORT}
 
-💾 Database: ${useMongoDB ? '✅ MongoDB (Persistent)' : '⚠️  File-based (Ephemeral)'}
+${setupWizard.isSetupComplete()
+    ? `💾 Database: ${useMongoDB ? '✅ MongoDB (Persistent)' : '⚠️  File-based (Ephemeral)'}`
+    : '⚙️  Status: Setup Required - Visit /setup'}
 
 📺 Screen URLs:
    Kanpur Platform 1:  http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%201&screenId=CNB-P1
