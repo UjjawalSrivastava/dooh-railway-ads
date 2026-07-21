@@ -546,6 +546,16 @@ app.post('/api/book', async (req, res) => {
             return res.status(400).json({ error: 'Missing adId in request' });
         }
 
+        // Fix: Parse priceDetails if it's a string
+        let parsedPriceDetails = priceDetails;
+        if (typeof priceDetails === 'string') {
+            try {
+                parsedPriceDetails = JSON.parse(priceDetails);
+            } catch (e) {
+                console.error('[Booking] Failed to parse priceDetails:', e.message);
+            }
+        }
+
         const ad = await dbHelpers.getAdById(adId);
         console.log('[Booking] Found ad:', ad ? { id: ad.id, status: ad.status } : 'not found');
 
@@ -576,7 +586,7 @@ app.post('/api/book', async (req, res) => {
         state, district, station, platforms,
         hours, startTime, date, primeTime,
         customerName, customerEmail, customerPhone,
-        priceDetails,
+        priceDetails: parsedPriceDetails,
         paymentStatus: 'pending',
         bookingStatus: 'pending'
     };
