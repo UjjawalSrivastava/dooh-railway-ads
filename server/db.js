@@ -156,7 +156,8 @@ const adSchema = new mongoose.Schema({
         reason: String
     },
     duration: { type: Number, default: 30 },
-    bookingId: { type: String, default: null }
+    bookingId: { type: String, default: null },
+    gridfsFileId: { type: String, default: null }
 }, { timestamps: true });
 
 // Booking Schema
