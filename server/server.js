@@ -229,8 +229,11 @@ async function getPlaylistForScreen(station, platform) {
     let ads = [];
 
     if (useMongoDB) {
-        bookings = await dbHelpers.getBookings();
-        ads = await dbHelpers.getAds();
+        const bookingsResult = await dbHelpers.getBookings();
+        const adsResult = await dbHelpers.getAds();
+        // Handle both old format (array) and new format (object with data)
+        bookings = bookingsResult.bookings || bookingsResult || [];
+        ads = adsResult.ads || adsResult || [];
     }
 
     // 1) Find active bookings
@@ -758,7 +761,8 @@ app.post('/api/book', async (req, res) => {
         }
 
     // Check for existing bookings
-    const bookings = await dbHelpers.getBookings();
+    const bookingsResult = await dbHelpers.getBookings();
+    const bookings = bookingsResult.bookings || bookingsResult || [];
     const existingBookings = bookings.filter(b =>
         b.station === station &&
         b.platforms.some(p => platforms.includes(p)) &&
