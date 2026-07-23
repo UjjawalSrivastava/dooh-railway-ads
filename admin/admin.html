@@ -370,7 +370,13 @@
         }
 
         .btn-danger {
-            background: var(--danger);
+            background: #fca5a5;
+            color: #991b1b;
+            border: 1px solid #f87171;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            background: #f87171;
             color: white;
         }
 
@@ -722,7 +728,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th><input type="checkbox" class="checkbox" id="select-all-bookings-header" onchange="toggleSelectAllBookings()"></th>
+                                    <th></th>
                                     <th>Booking ID</th>
                                     <th>Customer</th>
                                     <th>Station</th>
@@ -768,7 +774,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th><input type="checkbox" class="checkbox" id="select-all-ads-header" onchange="toggleSelectAllAds()"></th>
+                                    <th></th>
                                     <th>Preview</th>
                                     <th>Ad ID</th>
                                     <th>Filename</th>
@@ -1114,8 +1120,8 @@
         }
 
         function toggleSelectAllBookings() {
-            const headerCheckbox = document.getElementById('select-all-bookings-header');
-            const isChecked = headerCheckbox.checked;
+            const toolbarCheckbox = document.getElementById('select-all-bookings');
+            const isChecked = toolbarCheckbox.checked;
 
             document.querySelectorAll('.booking-checkbox').forEach(cb => {
                 cb.checked = isChecked;
@@ -1126,7 +1132,6 @@
                 }
             });
 
-            document.getElementById('select-all-bookings').checked = isChecked;
             updateBookingsSelectionUI();
         }
 
@@ -1134,6 +1139,11 @@
             const count = selectedBookings.size;
             document.getElementById('bulk-delete-bookings-btn').disabled = count === 0;
             document.getElementById('bulk-delete-bookings-btn').textContent = `🗑️ Delete Selected (${count})`;
+
+            // Sync toolbar checkbox - check if all visible checkboxes are selected
+            const visibleCheckboxes = document.querySelectorAll('.booking-checkbox');
+            const allChecked = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every(cb => cb.checked);
+            document.getElementById('select-all-bookings').checked = allChecked;
         }
 
         async function deleteBooking(id) {
@@ -1282,8 +1292,8 @@
         }
 
         function toggleSelectAllAds() {
-            const headerCheckbox = document.getElementById('select-all-ads-header');
-            const isChecked = headerCheckbox.checked;
+            const toolbarCheckbox = document.getElementById('select-all-ads');
+            const isChecked = toolbarCheckbox.checked;
 
             document.querySelectorAll('.ad-checkbox').forEach(cb => {
                 cb.checked = isChecked;
@@ -1294,7 +1304,6 @@
                 }
             });
 
-            document.getElementById('select-all-ads').checked = isChecked;
             updateAdsSelectionUI();
         }
 
@@ -1302,6 +1311,11 @@
             const count = selectedAds.size;
             document.getElementById('bulk-delete-ads-btn').disabled = count === 0;
             document.getElementById('bulk-delete-ads-btn').textContent = `🗑️ Delete Selected (${count})`;
+
+            // Sync toolbar checkbox - check if all visible checkboxes are selected
+            const visibleCheckboxes = document.querySelectorAll('.ad-checkbox');
+            const allChecked = visibleCheckboxes.length > 0 && Array.from(visibleCheckboxes).every(cb => cb.checked);
+            document.getElementById('select-all-ads').checked = allChecked;
         }
 
         async function deleteAd(id) {
