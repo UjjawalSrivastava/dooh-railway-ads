@@ -737,6 +737,14 @@
                             </button>
                         </div>
                         <div class="toolbar-right">
+                            <select class="form-input" id="bookings-per-page" onchange="changeBookingsPerPage(this.value)" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                <option value="5">5 per page</option>
+                                <option value="10" selected>10 per page</option>
+                                <option value="20">20 per page</option>
+                                <option value="50">50 per page</option>
+                                <option value="100">100 per page</option>
+                                <option value="1000">All</option>
+                            </select>
                             <span class="pagination-info" id="bookings-pagination-info"></span>
                         </div>
                     </div>
@@ -787,6 +795,14 @@
                             </button>
                         </div>
                         <div class="toolbar-right">
+                            <select class="form-input" id="ads-per-page" onchange="changeAdsPerPage(this.value)" style="width: auto; padding: 0.5rem; font-size: 0.875rem;">
+                                <option value="5">5 per page</option>
+                                <option value="10" selected>10 per page</option>
+                                <option value="20">20 per page</option>
+                                <option value="50">50 per page</option>
+                                <option value="100">100 per page</option>
+                                <option value="1000">All</option>
+                            </select>
                             <span class="pagination-info" id="ads-pagination-info"></span>
                         </div>
                     </div>
@@ -1115,6 +1131,15 @@
         function renderBookingsPagination(containerId, pagination, loadFn) {
             const container = document.getElementById(containerId);
             const { page, totalPages, total, limit } = pagination;
+
+            // Hide pagination if no data
+            if (total === 0) {
+                container.style.display = 'none';
+                document.getElementById('bookings-pagination-info').textContent = '0 of 0';
+                return;
+            }
+
+            container.style.display = 'flex';
             const start = (page - 1) * limit + 1;
             const end = Math.min(page * limit, total);
 
@@ -1135,6 +1160,12 @@
             `;
 
             container.innerHTML = html;
+        }
+
+        function changeBookingsPerPage(limit) {
+            bookingsPagination.limit = parseInt(limit);
+            bookingsPagination.page = 1;
+            loadBookings(1);
         }
 
         function toggleBookingSelection(id) {
@@ -1298,6 +1329,15 @@
         function renderAdsPagination() {
             const container = document.getElementById('ads-pagination');
             const { page, totalPages, total, limit } = adsPagination;
+
+            // Hide pagination if no data
+            if (total === 0) {
+                container.style.display = 'none';
+                document.getElementById('ads-pagination-info').textContent = '0 of 0';
+                return;
+            }
+
+            container.style.display = 'flex';
             const start = (page - 1) * limit + 1;
             const end = Math.min(page * limit, total);
 
@@ -1318,6 +1358,12 @@
             `;
 
             container.innerHTML = html;
+        }
+
+        function changeAdsPerPage(limit) {
+            adsPagination.limit = parseInt(limit);
+            adsPagination.page = 1;
+            loadAds(1);
         }
 
         function toggleAdSelection(id) {
