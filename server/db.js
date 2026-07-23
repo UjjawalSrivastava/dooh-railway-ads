@@ -78,12 +78,21 @@ const gridfsHelpers = {
 
     // Download file from GridFS
     downloadFile(fileId, options = {}) {
-        const bucket = getGFSBucket();
-        const objectId = new mongoose.Types.ObjectId(fileId);
-        if (options.start !== undefined || options.end !== undefined) {
-            return bucket.openDownloadStream(objectId, options);
+        try {
+            const bucket = getGFSBucket();
+            if (!mongoose.Types.ObjectId.isValid(fileId)) {
+                throw new Error('Invalid fileId format: ' + fileId);
+            }
+            const objectId = new mongoose.Types.ObjectId(fileId);
+            console.log('[GridFS] Opening download stream for:', fileId);
+            if (options.start !== undefined || options.end !== undefined) {
+                return bucket.openDownloadStream(objectId, options);
+            }
+            return bucket.openDownloadStream(objectId);
+        } catch (err) {
+            console.error('[GridFS] downloadFile error:', err.message);
+            throw err;
         }
-        return bucket.openDownloadStream(objectId);
     },
 
     // Delete file from GridFS
