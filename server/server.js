@@ -12,6 +12,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
 const http = require('http');
+const mongoose = require('mongoose');
 require('dotenv').config();
 
 const { connectDB, dbHelpers, gridfsHelpers } = require('./db');
@@ -529,6 +530,12 @@ app.get('/api/video/:fileId', async (req, res) => {
 
         const fileId = req.params.fileId;
         console.log('[Video] Looking up file:', fileId);
+
+        // Validate fileId
+        if (!fileId || !mongoose.Types.ObjectId.isValid(fileId)) {
+            console.log('[Video] Invalid fileId format:', fileId);
+            return res.status(400).json({ error: 'Invalid video ID format' });
+        }
 
         const file = await gridfsHelpers.findFile(fileId);
         console.log('[Video] File lookup result:', file ? { id: file._id, length: file.length, metadata: file.metadata } : 'not found');
