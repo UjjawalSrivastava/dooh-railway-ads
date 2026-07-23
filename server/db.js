@@ -33,6 +33,7 @@ const connectDB = async () => {
 
 // Get GridFS bucket instance
 const getGFSBucket = () => {
+    console.log('[GridFS] getGFSBucket called, gfsBucket:', gfsBucket ? 'exists' : 'null');
     if (!gfsBucket) {
         throw new Error('GridFS not initialized. Connect to MongoDB first.');
     }
@@ -94,9 +95,17 @@ const gridfsHelpers = {
 
     // Find file by ID
     async findFile(fileId) {
-        const bucket = getGFSBucket();
-        const files = await bucket.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
-        return files[0] || null;
+        console.log('[GridFS] findFile called with:', fileId);
+        try {
+            const bucket = getGFSBucket();
+            console.log('[GridFS] Got bucket, searching for file...');
+            const files = await bucket.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
+            console.log('[GridFS] Find result:', files.length, 'files found');
+            return files[0] || null;
+        } catch (err) {
+            console.error('[GridFS] findFile error:', err.message, err.stack);
+            throw err;
+        }
     },
 
     // Check if GridFS is available
