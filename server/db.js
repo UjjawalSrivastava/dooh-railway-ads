@@ -95,11 +95,28 @@ const gridfsHelpers = {
 
     // Find file by ID
     async findFile(fileId) {
-        console.log('[GridFS] findFile called with:', fileId);
+        console.log('[GridFS] findFile called with:', fileId, 'type:', typeof fileId);
         try {
             const bucket = getGFSBucket();
-            console.log('[GridFS] Got bucket, searching for file...');
-            const files = await bucket.find({ _id: new mongoose.Types.ObjectId(fileId) }).toArray();
+            console.log('[GridFS] Got bucket:', bucket ? 'yes' : 'no');
+
+            // Validate fileId format
+            if (!fileId || typeof fileId !== 'string') {
+                console.error('[GridFS] Invalid fileId:', fileId);
+                return null;
+            }
+
+            // Check if valid ObjectId
+            if (!mongoose.Types.ObjectId.isValid(fileId)) {
+                console.error('[GridFS] Invalid ObjectId format:', fileId);
+                return null;
+            }
+
+            const objectId = new mongoose.Types.ObjectId(fileId);
+            console.log('[GridFS] Created ObjectId:', objectId);
+
+            console.log('[GridFS] Searching for file...');
+            const files = await bucket.find({ _id: objectId }).toArray();
             console.log('[GridFS] Find result:', files.length, 'files found');
             return files[0] || null;
         } catch (err) {
