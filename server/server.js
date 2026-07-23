@@ -520,13 +520,18 @@ app.post('/api/upload', (req, res) => {
 
 // GridFS Video Streaming Endpoint
 app.get('/api/video/:fileId', async (req, res) => {
+    console.log('[Video] Request for fileId:', req.params.fileId);
     try {
         if (!useMongoDB || !gridfsHelpers.isAvailable()) {
+            console.log('[Video] GridFS not available');
             return res.status(503).json({ error: 'Video storage not available' });
         }
 
         const fileId = req.params.fileId;
+        console.log('[Video] Looking up file:', fileId);
+
         const file = await gridfsHelpers.findFile(fileId);
+        console.log('[Video] File lookup result:', file ? { id: file._id, length: file.length, metadata: file.metadata } : 'not found');
 
         if (!file) {
             return res.status(404).json({ error: 'Video not found' });
@@ -537,11 +542,15 @@ app.get('/api/video/:fileId', async (req, res) => {
 
         // Handle range requests for video seeking
         const range = req.headers.range;
+        console.log('[Video] Range header:', range);
+
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
             const start = parseInt(parts[0], 10);
             const end = parts[1] ? parseInt(parts[1], 10) : fileLength - 1;
             const chunksize = end - start + 1;
+
+            console.log('[Video] Range request:', { start, end, chunksize, fileLength });
 
             res.status(206);
             res.set({
@@ -552,9 +561,14 @@ app.get('/api/video/:fileId', async (req, res) => {
                 'Cache-Control': 'public, max-age=3600'
             });
 
-            const downloadStream = gridfsHelpers.downloadFile(fileId, { start, end: end < fileLength - 1 ? end : undefined });
+            const downloadOptions = { start, end: end < fileLength - 1 ? end : undefined };
+            console.log('[Video] Download options:', downloadOptions);
+
+            const downloadStream = gridfsHelpers.downloadFile(fileId, downloadOptions);
+            console.log('[Video] Stream created, piping...');
+
             downloadStream.on('error', (err) => {
-                console.error('[GridFS] Stream error:', err);
+                console.error('[GridFS] Stream error:', err.message, err.stack);
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Stream error' });
                 }
@@ -562,6 +576,7 @@ app.get('/api/video/:fileId', async (req, res) => {
             downloadStream.pipe(res);
         } else {
             // Full file request
+            console.log('[Video] Full file request, length:', fileLength);
             res.set({
                 'Content-Length': fileLength,
                 'Content-Type': contentType,
@@ -570,9 +585,10 @@ app.get('/api/video/:fileId', async (req, res) => {
             });
 
             const downloadStream = gridfsHelpers.downloadFile(fileId);
+            console.log('[Video] Stream created for full file, piping...');
 
             downloadStream.on('error', (err) => {
-                console.error('[GridFS] Stream error:', err);
+                console.error('[GridFS] Stream error:', err.message, err.stack);
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Stream error' });
                 }
@@ -581,8 +597,8 @@ app.get('/api/video/:fileId', async (req, res) => {
             downloadStream.pipe(res);
         }
     } catch (error) {
-        console.error('[GridFS] Error streaming video:', error.message);
-        res.status(500).json({ error: 'Failed to stream video' });
+        console.error('[GridFS] Error streaming video:', error.message, error.stack);
+        res.status(500).json({ error: 'Failed to stream video: ' + error.message });
     }
 });
 
