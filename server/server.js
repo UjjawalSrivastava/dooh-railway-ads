@@ -532,29 +532,58 @@ app.get('/api/video/:fileId', async (req, res) => {
             return res.status(404).json({ error: 'Video not found' });
         }
 
-        // Set proper content type
-        res.set('Content-Type', file.metadata?.contentType || 'video/mp4');
-        res.set('Accept-Ranges', 'bytes');
+        const contentType = file.metadata?.contentType || 'video/mp4';
+        const fileLength = file.length;
 
         // Handle range requests for video seeking
         const range = req.headers.range;
         if (range) {
             const parts = range.replace(/bytes=/, '').split('-');
             const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : file.length - 1;
+            const end = parts[1] ? parseInt(parts[1], 10) : fileLength - 1;
             const chunksize = end - start + 1;
 
             res.status(206);
-            res.set('Content-Range', `bytes ${start}-${end}/${file.length}`);
-            res.set('Content-Length', chunksize);
+            res.set({
+                'Content-Range': `bytes ${start}-${end}/${fileLength}`,
+                'Accept-Ranges': 'bytes',
+                'Content-Length': chunksize,
+                'Content-Type': contentType,
+                'Cache-Control': 'public, max-age=3600'
+            });
 
             const downloadStream = gridfsHelpers.downloadFile(fileId);
+
+            downloadStream.on('error', (err) => {
+                console.error('[GridFS] Stream error:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Stream error' });
+                }
+            });
+
             downloadStream.start(start);
-            downloadStream.end(end);
+            if (end < fileLength - 1) {
+                downloadStream.end(end);
+            }
             downloadStream.pipe(res);
         } else {
-            res.set('Content-Length', file.length);
+            // Full file request
+            res.set({
+                'Content-Length': fileLength,
+                'Content-Type': contentType,
+                'Accept-Ranges': 'bytes',
+                'Cache-Control': 'public, max-age=3600'
+            });
+
             const downloadStream = gridfsHelpers.downloadFile(fileId);
+
+            downloadStream.on('error', (err) => {
+                console.error('[GridFS] Stream error:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Stream error' });
+                }
+            });
+
             downloadStream.pipe(res);
         }
     } catch (error) {
