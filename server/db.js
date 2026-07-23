@@ -235,8 +235,14 @@ const AdminConfig = mongoose.model('AdminConfig', adminConfigSchema);
 // Database Helper Functions
 const dbHelpers = {
     // Ad operations
-    async getAds() {
-        return await Ad.find().lean();
+    async getAds(options = {}) {
+        const { page = 1, limit = 10 } = options;
+        const skip = (page - 1) * limit;
+        const [ads, total] = await Promise.all([
+            Ad.find().skip(skip).limit(limit).lean(),
+            Ad.countDocuments()
+        ]);
+        return { ads, total, page, totalPages: Math.ceil(total / limit) };
     },
 
     async getAdById(id) {
@@ -252,9 +258,23 @@ const dbHelpers = {
         return await Ad.findOneAndUpdate({ id }, updates, { new: true }).lean();
     },
 
+    async deleteAd(id) {
+        return await Ad.findOneAndDelete({ id });
+    },
+
+    async deleteAds(ids) {
+        return await Ad.deleteMany({ id: { $in: ids } });
+    },
+
     // Booking operations
-    async getBookings() {
-        return await Booking.find().lean();
+    async getBookings(options = {}) {
+        const { page = 1, limit = 10 } = options;
+        const skip = (page - 1) * limit;
+        const [bookings, total] = await Promise.all([
+            Booking.find().skip(skip).limit(limit).lean(),
+            Booking.countDocuments()
+        ]);
+        return { bookings, total, page, totalPages: Math.ceil(total / limit) };
     },
 
     async getBookingById(id) {
@@ -268,6 +288,14 @@ const dbHelpers = {
 
     async updateBooking(id, updates) {
         return await Booking.findOneAndUpdate({ id }, updates, { new: true }).lean();
+    },
+
+    async deleteBooking(id) {
+        return await Booking.findOneAndDelete({ id });
+    },
+
+    async deleteBookings(ids) {
+        return await Booking.deleteMany({ id: { $in: ids } });
     },
 
     // Screen operations

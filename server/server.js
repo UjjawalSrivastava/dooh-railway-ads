@@ -881,15 +881,26 @@ app.get('/api/admin/bookings', async (req, res) => {
         return res.json([]);
     }
 
-    const bookings = await dbHelpers.getBookings();
-    const ads = await dbHelpers.getAds();
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
 
-    const bookingsWithAds = bookings.map(b => {
-        const ad = ads.find(a => a.id === b.adId);
-        return { ...b, ad: ad ? { path: ad.path, status: ad.status } : null };
-    });
+        const { bookings, total, totalPages } = await dbHelpers.getBookings({ page, limit });
+        const ads = await dbHelpers.getAds({ page: 1, limit: 1000 }); // Get all ads for mapping
 
-    res.json(bookingsWithAds);
+        const bookingsWithAds = bookings.map(b => {
+            const ad = ads.ads.find(a => a.id === b.adId);
+            return { ...b, ad: ad ? { path: ad.path, status: ad.status } : null };
+        });
+
+        res.json({
+            data: bookingsWithAds,
+            pagination: { page, limit, total, totalPages }
+        });
+    } catch (error) {
+        console.error('[Admin] Get bookings error:', error);
+        res.status(500).json({ error: 'Failed to fetch bookings' });
+    }
 });
 
 app.get('/api/admin/ads', async (req, res) => {
@@ -897,8 +908,125 @@ app.get('/api/admin/ads', async (req, res) => {
         return res.json([]);
     }
 
-    const ads = await dbHelpers.getAds();
-    res.json(ads);
+    try {
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
+        const { ads, total, totalPages } = await dbHelpers.getAds({ page, limit });
+        res.json({
+            data: ads,
+            pagination: { page, limit, total, totalPages }
+        });
+    } catch (error) {
+        console.error('[Admin] Get ads error:', error);
+        res.status(500).json({ error: 'Failed to fetch ads' });
+    }
+});
+
+// Delete individual ad
+app.delete('/api/admin/ads/:adId', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const ad = await dbHelpers.getAdById(req.params.adId);
+        if (!ad) {
+            return res.status(404).json({ error: 'Ad not found' });
+        }
+
+        // Delete from GridFS if gridfsFileId exists
+        if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
+            try {
+                await gridfsHelpers.deleteFile(ad.gridfsFileId);
+                console.log('[Admin] Deleted GridFS file:', ad.gridfsFileId);
+            } catch (err) {
+                console.error('[Admin] GridFS delete error:', err.message);
+            }
+        }
+
+        await dbHelpers.deleteAd(req.params.adId);
+        res.json({ success: true, message: 'Ad deleted successfully' });
+    } catch (error) {
+        console.error('[Admin] Delete ad error:', error);
+        res.status(500).json({ error: 'Failed to delete ad' });
+    }
+});
+
+// Bulk delete ads
+app.post('/api/admin/ads/bulk-delete', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No IDs provided' });
+        }
+
+        // Get ads to delete GridFS files
+        const ads = await dbHelpers.getAds({ page: 1, limit: 1000 });
+        const adsToDelete = ads.ads.filter(a => ids.includes(a.id));
+
+        // Delete GridFS files
+        for (const ad of adsToDelete) {
+            if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
+                try {
+                    await gridfsHelpers.deleteFile(ad.gridfsFileId);
+                    console.log('[Admin] Deleted GridFS file:', ad.gridfsFileId);
+                } catch (err) {
+                    console.error('[Admin] GridFS delete error:', err.message);
+                }
+            }
+        }
+
+        const result = await dbHelpers.deleteAds(ids);
+        res.json({ success: true, message: `${result.deletedCount} ads deleted` });
+    } catch (error) {
+        console.error('[Admin] Bulk delete ads error:', error);
+        res.status(500).json({ error: 'Failed to delete ads' });
+    }
+});
+
+// Delete individual booking
+app.delete('/api/admin/bookings/:bookingId', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const booking = await dbHelpers.getBookingById(req.params.bookingId);
+        if (!booking) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        await dbHelpers.deleteBooking(req.params.bookingId);
+        res.json({ success: true, message: 'Booking deleted successfully' });
+    } catch (error) {
+        console.error('[Admin] Delete booking error:', error);
+        res.status(500).json({ error: 'Failed to delete booking' });
+    }
+});
+
+// Bulk delete bookings
+app.post('/api/admin/bookings/bulk-delete', async (req, res) => {
+    if (!useMongoDB) {
+        return res.status(503).json({ error: 'Database not available' });
+    }
+
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ error: 'No IDs provided' });
+        }
+
+        const result = await dbHelpers.deleteBookings(ids);
+        res.json({ success: true, message: `${result.deletedCount} bookings deleted` });
+    } catch (error) {
+        console.error('[Admin] Bulk delete bookings error:', error);
+        res.status(500).json({ error: 'Failed to delete bookings' });
+    }
 });
 
 app.get('/api/admin/stats', async (req, res) => {
