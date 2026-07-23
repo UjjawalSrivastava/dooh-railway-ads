@@ -76,9 +76,13 @@ const gridfsHelpers = {
     },
 
     // Download file from GridFS
-    downloadFile(fileId) {
+    downloadFile(fileId, options = {}) {
         const bucket = getGFSBucket();
-        return bucket.openDownloadStream(new mongoose.Types.ObjectId(fileId));
+        const objectId = new mongoose.Types.ObjectId(fileId);
+        if (options.start !== undefined || options.end !== undefined) {
+            return bucket.openDownloadStream(objectId, options);
+        }
+        return bucket.openDownloadStream(objectId);
     },
 
     // Delete file from GridFS

@@ -552,19 +552,13 @@ app.get('/api/video/:fileId', async (req, res) => {
                 'Cache-Control': 'public, max-age=3600'
             });
 
-            const downloadStream = gridfsHelpers.downloadFile(fileId);
-
+            const downloadStream = gridfsHelpers.downloadFile(fileId, { start, end: end < fileLength - 1 ? end : undefined });
             downloadStream.on('error', (err) => {
                 console.error('[GridFS] Stream error:', err);
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Stream error' });
                 }
             });
-
-            downloadStream.start(start);
-            if (end < fileLength - 1) {
-                downloadStream.end(end);
-            }
             downloadStream.pipe(res);
         } else {
             // Full file request
