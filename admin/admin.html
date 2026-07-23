@@ -1460,6 +1460,18 @@
             currentAdStatus = null;
         }
 
+        function previewAd(id, videoUrl, status) {
+            currentAdId = id;
+            currentAdStatus = status;
+
+            const modal = document.getElementById('video-modal');
+            const video = document.getElementById('modal-video');
+
+            video.src = videoUrl;
+            video.load();
+            modal.classList.add('active');
+        }
+
         async function approveAd() {
             if (!currentAdId) return;
             try {
