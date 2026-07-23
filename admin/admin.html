@@ -249,6 +249,77 @@
             color: #991b1b;
         }
 
+        /* Checkbox */
+        .checkbox {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            gap: 1rem;
+        }
+
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1.5rem;
+            border-top: 1px solid var(--gray-200);
+        }
+
+        .pagination-btn {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--gray-300);
+            background: white;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+        }
+
+        .pagination-btn:hover:not(:disabled) {
+            background: var(--gray-100);
+            border-color: var(--gray-400);
+        }
+
+        .pagination-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination-info {
+            color: var(--gray-500);
+            font-size: 0.875rem;
+        }
+        }
+
         .badge-scheduled {
             background: #dbeafe;
             color: #1e40af;
@@ -635,10 +706,23 @@
                 </div>
 
                 <div class="card">
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <input type="checkbox" class="checkbox" id="select-all-bookings" onchange="toggleSelectAllBookings()">
+                            <label for="select-all-bookings">Select All</label>
+                            <button class="btn btn-danger" id="bulk-delete-bookings-btn" onclick="bulkDeleteBookings()" disabled>
+                                🗑️ Delete Selected
+                            </button>
+                        </div>
+                        <div class="toolbar-right">
+                            <span class="pagination-info" id="bookings-pagination-info"></span>
+                        </div>
+                    </div>
                     <div class="card-body">
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" class="checkbox" id="select-all-bookings-header" onchange="toggleSelectAllBookings()"></th>
                                     <th>Booking ID</th>
                                     <th>Customer</th>
                                     <th>Station</th>
@@ -648,11 +732,15 @@
                                     <th>Amount</th>
                                     <th>Payment</th>
                                     <th>Status</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="all-bookings">
                             </tbody>
                         </table>
+                        <div class="pagination" id="bookings-pagination">
+                            <!-- Pagination buttons will be inserted here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -664,13 +752,23 @@
                 </div>
 
                 <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Ads Requiring Moderation</h3>
+                    <div class="toolbar">
+                        <div class="toolbar-left">
+                            <input type="checkbox" class="checkbox" id="select-all-ads" onchange="toggleSelectAllAds()">
+                            <label for="select-all-ads">Select All</label>
+                            <button class="btn btn-danger" id="bulk-delete-ads-btn" onclick="bulkDeleteAds()" disabled>
+                                🗑️ Delete Selected
+                            </button>
+                        </div>
+                        <div class="toolbar-right">
+                            <span class="pagination-info" id="ads-pagination-info"></span>
+                        </div>
                     </div>
                     <div class="card-body">
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th><input type="checkbox" class="checkbox" id="select-all-ads-header" onchange="toggleSelectAllAds()"></th>
                                     <th>Preview</th>
                                     <th>Ad ID</th>
                                     <th>Filename</th>
@@ -682,6 +780,9 @@
                             <tbody id="pending-ads">
                             </tbody>
                         </table>
+                        <div class="pagination" id="ads-pagination">
+                            <!-- Pagination buttons will be inserted here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -844,6 +945,12 @@
         let currentAdStatus = null;
         let authToken = localStorage.getItem('adminToken');
 
+        // Pagination state
+        let adsPagination = { page: 1, limit: 10, total: 0, totalPages: 1 };
+        let bookingsPagination = { page: 1, limit: 10, total: 0, totalPages: 1 };
+        let selectedAds = new Set();
+        let selectedBookings = new Set();
+
         // Check auth on load
         if (authToken) {
             showDashboard();
@@ -912,13 +1019,21 @@
         }
 
         // Bookings
-        async function loadBookings() {
+        async function loadBookings(page = 1) {
             try {
-                const res = await fetch(`${API_URL}/admin/bookings`);
-                const bookings = await res.json();
+                const res = await fetch(`${API_URL}/admin/bookings?page=${page}&limit=${bookingsPagination.limit}`);
+                const result = await res.json();
 
-                renderBookings(bookings, 'all-bookings');
-                renderBookings(bookings.slice(0, 5), 'recent-bookings');
+                if (result.data) {
+                    bookingsPagination = result.pagination;
+                    renderBookings(result.data, 'all-bookings');
+                    renderBookingsPagination('bookings-pagination', bookingsPagination, loadBookings);
+                    updateBookingsSelectionUI();
+                } else {
+                    // Fallback for old API format
+                    renderBookings(result, 'all-bookings');
+                    renderBookings(result.slice(0, 5), 'recent-bookings');
+                }
             } catch (err) {
                 console.error('Failed to load bookings:', err);
             }
@@ -926,11 +1041,12 @@
 
         function renderBookings(bookings, tableId) {
             const tbody = document.getElementById(tableId);
+            const isRecent = tableId === 'recent-bookings';
 
             if (bookings.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="9" class="empty-state">
+                        <td colspan="${isRecent ? 6 : 11}" class="empty-state">
                             <div class="empty-icon">📋</div>
                             <div class="empty-title">No bookings yet</div>
                         </td>
@@ -940,7 +1056,8 @@
             }
 
             tbody.innerHTML = bookings.map(b => `
-                <tr>
+                <tr data-booking-id="${b.id}">
+                    ${!isRecent ? `<td><input type="checkbox" class="checkbox booking-checkbox" value="${b.id}" onchange="toggleBookingSelection('${b.id}')"></td>` : ''}
                     <td><strong>${b.id}</strong></td>
                     <td>${b.customerName}<br><small>${b.customerEmail}</small></td>
                     <td>${b.station}</td>
@@ -950,35 +1067,160 @@
                     <td>₹${b.priceDetails?.total?.toLocaleString() || '0'}</td>
                     <td><span class="badge badge-${b.paymentStatus === 'completed' ? 'paid' : 'unpaid'}">${b.paymentStatus}</span></td>
                     <td><span class="badge badge-${b.bookingStatus}">${b.bookingStatus}</span></td>
+                    ${!isRecent ? `<td><button class="btn btn-danger" onclick="deleteBooking('${b.id}')">🗑️</button></td>` : ''}
                 </tr>
             `).join('');
+
+            // Restore checkbox states
+            if (!isRecent) {
+                document.querySelectorAll('.booking-checkbox').forEach(cb => {
+                    cb.checked = selectedBookings.has(cb.value);
+                });
+            }
+        }
+
+        function renderBookingsPagination(containerId, pagination, loadFn) {
+            const container = document.getElementById(containerId);
+            const { page, totalPages, total, limit } = pagination;
+            const start = (page - 1) * limit + 1;
+            const end = Math.min(page * limit, total);
+
+            document.getElementById('bookings-pagination-info').textContent = `${start}-${end} of ${total}`;
+
+            let html = `
+                <button class="pagination-btn" onclick="${loadFn.name}(1)" ${page === 1 ? 'disabled' : ''}>First</button>
+                <button class="pagination-btn" onclick="${loadFn.name}(${page - 1})" ${page === 1 ? 'disabled' : ''}>Prev</button>
+            `;
+
+            for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+                html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="${loadFn.name}(${i})">${i}</button>`;
+            }
+
+            html += `
+                <button class="pagination-btn" onclick="${loadFn.name}(${page + 1})" ${page === totalPages ? 'disabled' : ''}>Next</button>
+                <button class="pagination-btn" onclick="${loadFn.name}(${totalPages})" ${page === totalPages ? 'disabled' : ''}>Last</button>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function toggleBookingSelection(id) {
+            if (selectedBookings.has(id)) {
+                selectedBookings.delete(id);
+            } else {
+                selectedBookings.add(id);
+            }
+            updateBookingsSelectionUI();
+        }
+
+        function toggleSelectAllBookings() {
+            const headerCheckbox = document.getElementById('select-all-bookings-header');
+            const isChecked = headerCheckbox.checked;
+
+            document.querySelectorAll('.booking-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+                if (isChecked) {
+                    selectedBookings.add(cb.value);
+                } else {
+                    selectedBookings.delete(cb.value);
+                }
+            });
+
+            document.getElementById('select-all-bookings').checked = isChecked;
+            updateBookingsSelectionUI();
+        }
+
+        function updateBookingsSelectionUI() {
+            const count = selectedBookings.size;
+            document.getElementById('bulk-delete-bookings-btn').disabled = count === 0;
+            document.getElementById('bulk-delete-bookings-btn').textContent = `🗑️ Delete Selected (${count})`;
+        }
+
+        async function deleteBooking(id) {
+            if (!confirm('Are you sure you want to delete this booking?')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/bookings/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('Booking deleted successfully');
+                    loadBookings(bookingsPagination.page);
+                    loadStats();
+                } else {
+                    alert('Failed to delete booking: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Delete booking error:', err);
+                alert('Failed to delete booking');
+            }
+        }
+
+        async function bulkDeleteBookings() {
+            if (!confirm(`Are you sure you want to delete ${selectedBookings.size} bookings?`)) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/bookings/bulk-delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: Array.from(selectedBookings) })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    selectedBookings.clear();
+                    loadBookings(bookingsPagination.page);
+                    loadStats();
+                } else {
+                    alert('Failed to delete bookings: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Bulk delete bookings error:', err);
+                alert('Failed to delete bookings');
+            }
         }
 
         // Ads
-        async function loadAds() {
+        async function loadAds(page = 1) {
             try {
-                const res = await fetch(`${API_URL}/admin/ads`);
-                const ads = await res.json();
+                const res = await fetch(`${API_URL}/admin/ads?page=${page}&limit=${adsPagination.limit}`);
+                const result = await res.json();
 
-                const tbody = document.getElementById('pending-ads');
-
-                if (ads.length === 0) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td colspan="6" class="empty-state">
-                                <div class="empty-icon">🎥</div>
-                                <div class="empty-title">No ads uploaded yet</div>
-                            </td>
-                        </tr>
-                    `;
-                    return;
+                if (result.data) {
+                    adsPagination = result.pagination;
+                    renderAds(result.data);
+                    renderAdsPagination();
+                    updateAdsSelectionUI();
+                } else {
+                    // Fallback for old API format
+                    renderAds(result);
                 }
+            } catch (err) {
+                console.error('Failed to load ads:', err);
+            }
+        }
 
-                tbody.innerHTML = ads.map(ad => {
-                    // Use GridFS URL if available, else fallback to path
-                    const videoUrl = ad.gridfsFileId ? `/api/video/${ad.gridfsFileId}` : ad.path;
-                    return `
+        function renderAds(ads) {
+            const tbody = document.getElementById('pending-ads');
+
+            if (ads.length === 0) {
+                tbody.innerHTML = `
                     <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="empty-icon">🎥</div>
+                            <div class="empty-title">No ads uploaded yet</div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = ads.map(ad => {
+                const videoUrl = ad.gridfsFileId ? `/api/video/${ad.gridfsFileId}` : ad.path;
+                return `
+                    <tr data-ad-id="${ad.id}">
+                        <td><input type="checkbox" class="checkbox ad-checkbox" value="${ad.id}" onchange="toggleAdSelection('${ad.id}')"></td>
                         <td>
                             <div class="video-thumb" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">
                                 ▶️
@@ -993,35 +1235,117 @@
                                 '<span>Auto-moderating...</span>' :
                                 `<button class="btn btn-secondary" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">View</button>`
                             }
+                            <button class="btn btn-danger" onclick="deleteAd('${ad.id}')">🗑️</button>
                         </td>
                     </tr>
-                `}).join('');
+                `;
+            }).join('');
+
+            // Restore checkbox states
+            document.querySelectorAll('.ad-checkbox').forEach(cb => {
+                cb.checked = selectedAds.has(cb.value);
+            });
+        }
+
+        function renderAdsPagination() {
+            const container = document.getElementById('ads-pagination');
+            const { page, totalPages, total, limit } = adsPagination;
+            const start = (page - 1) * limit + 1;
+            const end = Math.min(page * limit, total);
+
+            document.getElementById('ads-pagination-info').textContent = `${start}-${end} of ${total}`;
+
+            let html = `
+                <button class="pagination-btn" onclick="loadAds(1)" ${page === 1 ? 'disabled' : ''}>First</button>
+                <button class="pagination-btn" onclick="loadAds(${page - 1})" ${page === 1 ? 'disabled' : ''}>Prev</button>
+            `;
+
+            for (let i = Math.max(1, page - 2); i <= Math.min(totalPages, page + 2); i++) {
+                html += `<button class="pagination-btn ${i === page ? 'active' : ''}" onclick="loadAds(${i})">${i}</button>`;
+            }
+
+            html += `
+                <button class="pagination-btn" onclick="loadAds(${page + 1})" ${page === totalPages ? 'disabled' : ''}>Next</button>
+                <button class="pagination-btn" onclick="loadAds(${totalPages})" ${page === totalPages ? 'disabled' : ''}>Last</button>
+            `;
+
+            container.innerHTML = html;
+        }
+
+        function toggleAdSelection(id) {
+            if (selectedAds.has(id)) {
+                selectedAds.delete(id);
+            } else {
+                selectedAds.add(id);
+            }
+            updateAdsSelectionUI();
+        }
+
+        function toggleSelectAllAds() {
+            const headerCheckbox = document.getElementById('select-all-ads-header');
+            const isChecked = headerCheckbox.checked;
+
+            document.querySelectorAll('.ad-checkbox').forEach(cb => {
+                cb.checked = isChecked;
+                if (isChecked) {
+                    selectedAds.add(cb.value);
+                } else {
+                    selectedAds.delete(cb.value);
+                }
+            });
+
+            document.getElementById('select-all-ads').checked = isChecked;
+            updateAdsSelectionUI();
+        }
+
+        function updateAdsSelectionUI() {
+            const count = selectedAds.size;
+            document.getElementById('bulk-delete-ads-btn').disabled = count === 0;
+            document.getElementById('bulk-delete-ads-btn').textContent = `🗑️ Delete Selected (${count})`;
+        }
+
+        async function deleteAd(id) {
+            if (!confirm('Are you sure you want to delete this ad?')) return;
+
+            try {
+                const res = await fetch(`${API_URL}/admin/ads/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert('Ad deleted successfully');
+                    loadAds(adsPagination.page);
+                    loadStats();
+                } else {
+                    alert('Failed to delete ad: ' + data.error);
+                }
             } catch (err) {
-                console.error('Failed to load ads:', err);
+                console.error('Delete ad error:', err);
+                alert('Failed to delete ad');
             }
         }
 
-        function previewAd(adId, videoUrl, status) {
-            currentAdId = adId;
-            currentAdStatus = status;
-            document.getElementById('modal-video').src = videoUrl;
-            document.getElementById('video-modal').classList.add('active');
+        async function bulkDeleteAds() {
+            if (!confirm(`Are you sure you want to delete ${selectedAds.size} ads?`)) return;
 
-            // Show/hide approve/reject buttons based on status
-            const actionsDiv = document.querySelector('.modal-actions');
-            if (actionsDiv) {
-                if (status === 'pending') {
-                    actionsDiv.innerHTML = `
-                        <button class="btn btn-danger" onclick="rejectAd()">Reject</button>
-                        <button class="btn btn-success" onclick="approveAd()">Approve</button>
-                    `;
-                } else if (status === 'approved') {
-                    actionsDiv.innerHTML = `<span class="badge badge-approved">Already Approved</span>`;
-                } else if (status === 'rejected') {
-                    actionsDiv.innerHTML = `<span class="badge badge-rejected">Rejected</span>`;
+            try {
+                const res = await fetch(`${API_URL}/admin/ads/bulk-delete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: Array.from(selectedAds) })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    selectedAds.clear();
+                    loadAds(adsPagination.page);
+                    loadStats();
                 } else {
-                    actionsDiv.innerHTML = '';
+                    alert('Failed to delete ads: ' + data.error);
                 }
+            } catch (err) {
+                console.error('Bulk delete ads error:', err);
+                alert('Failed to delete ads');
             }
         }
 
