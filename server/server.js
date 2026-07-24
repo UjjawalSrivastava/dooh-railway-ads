@@ -203,7 +203,7 @@ async function getPlaylistForScreen(station, platform) {
         const startHour = parseInt(startTimeParts[0]) || 0;
         const startMinute = parseInt(startTimeParts[1]) || 0;
         const startTimeMinutes = startHour * 60 + startMinute;
-        const endTimeMinutes = startTimeMinutes + (parseInt(b.hours) * 60);
+        const endTimeMinutes = startTimeMinutes + (parseFloat(b.hours) * 60);
 
         const timeMatch = startTimeMinutes <= currentTimeMinutes && endTimeMinutes > currentTimeMinutes;
 
