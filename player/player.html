@@ -499,6 +499,7 @@
         let clearingPlayer = false;
         let errorCount = 0;
         const maxErrorsBeforeFallback = 3;
+        let userWantsUnmuted = false; // Track if user clicked unmute once
 
         // Clock
         function updateClock() {
@@ -741,32 +742,44 @@
             const existing = document.getElementById('unmute-btn');
             if (existing) existing.remove();
 
+            // If user already clicked unmute before, auto-unmute without showing button
+            if (userWantsUnmuted) {
+                player.muted = false;
+                console.log('Auto-unmuted: user preference remembered');
+                return;
+            }
+
             const btn = document.createElement('button');
             btn.id = 'unmute-btn';
-            btn.innerHTML = '🔇 Tap to unmute';
+            btn.innerHTML = '🔇';
+            btn.title = 'Tap to unmute';
             btn.style.cssText = `
                 position: absolute;
-                bottom: 140px;
-                left: 50%;
-                transform: translateX(-50%);
+                top: 80px;
+                right: 1rem;
                 background: rgba(239, 68, 68, 0.9);
                 color: white;
                 border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                font-size: 1rem;
-                font-weight: 600;
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                font-size: 1.5rem;
                 cursor: pointer;
                 z-index: 150;
                 animation: pulse 2s infinite;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
             `;
 
             btn.onclick = () => {
+                userWantsUnmuted = true; // Remember user preference
                 player.muted = false;
-                btn.innerHTML = '🔊 Audio on';
+                btn.innerHTML = '🔊';
                 btn.style.background = 'rgba(16, 185, 129, 0.9)';
-                setTimeout(() => btn.remove(), 2000);
+                btn.title = 'Audio on';
+                setTimeout(() => btn.remove(), 1500);
                 updateMuteIndicator();
             };
 
@@ -828,6 +841,9 @@
                 case 'm':
                 case 'M':
                     player.muted = !player.muted;
+                    if (!player.muted) {
+                        userWantsUnmuted = true; // Remember preference
+                    }
                     break;
                 case 'd':
                 case 'D':
