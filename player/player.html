@@ -805,8 +805,14 @@
 
                         // Schedule next ad after this ad's duration
                         adTimer = setTimeout(() => {
-                            const nextIndex = (index + 1) % currentPlaylist.length;
-                            playAd(nextIndex);
+                            const nextIndex = (index + 1);
+                            // If reached end of playlist, fetch fresh playlist from server
+                            if (nextIndex >= currentPlaylist.length) {
+                                console.log('Playlist complete, fetching fresh playlist...');
+                                fetchPlaylist();
+                            } else {
+                                playAd(nextIndex);
+                            }
                         }, duration);
                     })
                     .catch(err => {
@@ -814,8 +820,12 @@
                         if (err.name === 'NotAllowedError') {
                             showClickToPlay();
                         } else {
-                            const nextIndex = (index + 1) % currentPlaylist.length;
-                            playAd(nextIndex);
+                            const nextIndex = (index + 1);
+                            if (nextIndex >= currentPlaylist.length) {
+                                fetchPlaylist();
+                            } else {
+                                playAd(nextIndex);
+                            }
                         }
                     });
             };
