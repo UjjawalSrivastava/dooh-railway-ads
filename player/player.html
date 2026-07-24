@@ -811,9 +811,23 @@
 
             document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
 
-            // Display: actualDuration + overall playlist position (e.g., "12 sec • 20/900")
+            // Get unique ads in playlist
+            const uniqueAds = [];
+            const seenAdIds = new Set();
+            for (const item of currentPlaylist) {
+                if (!seenAdIds.has(item.adId)) {
+                    seenAdIds.add(item.adId);
+                    uniqueAds.push(item);
+                }
+            }
+
+            // Find position of current ad among unique ads
+            const currentUniqueIndex = uniqueAds.findIndex(u => u.adId === ad.adId) + 1;
+            const totalUniqueAds = uniqueAds.length;
+
+            // Display: actualDuration + unique position (e.g., "12 sec • 1/3")
             const updateMetaDisplay = (duration) => {
-                document.getElementById('ad-meta').textContent = `${duration} sec • ${index + 1}/${currentPlaylist.length}`;
+                document.getElementById('ad-meta').textContent = `${duration} sec • ${currentUniqueIndex}/${totalUniqueAds}`;
             };
 
             // Initial display with ad.duration
