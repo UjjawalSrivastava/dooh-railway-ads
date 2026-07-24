@@ -613,6 +613,7 @@
         let userWantsUnmuted = false;
         let adPlayCounts = {}; // Track play counts per ad
         let adActualDurations = {}; // Store actual durations per adId
+        let nextVideoPreloader = null; // Preload next video for seamless transition
 
         // Clock
         function updateClock() {
@@ -788,6 +789,31 @@
             document.getElementById('current-ad').textContent = currentAdIndex + 1;
         }
 
+        // Preload next video for seamless transition
+        function preloadNextVideo(currentIndex) {
+            const nextIndex = currentIndex + 1;
+            if (nextIndex >= currentPlaylist.length) return;
+
+            const nextAd = currentPlaylist[nextIndex];
+            if (!nextAd || !nextAd.videoUrl) return;
+
+            const videoUrl = `${window.location.origin}${nextAd.videoUrl}`;
+
+            // Create hidden preloader video element
+            if (nextVideoPreloader) {
+                nextVideoPreloader.removeAttribute('src');
+                nextVideoPreloader.load();
+            }
+
+            nextVideoPreloader = document.createElement('video');
+            nextVideoPreloader.style.display = 'none';
+            nextVideoPreloader.preload = 'auto';
+            nextVideoPreloader.src = videoUrl;
+            nextVideoPreloader.load();
+
+            console.log('Preloading next video:', videoUrl);
+        }
+
         function playAd(index) {
             if (currentPlaylist.length === 0) {
                 showDefaultContent();
@@ -894,6 +920,9 @@
                         const duration = getDuration() * 1000;
                         console.log(`Playing for ${getDuration()}s, next ad scheduled`);
 
+                        // Preload next video while current is playing (for seamless transition)
+                        preloadNextVideo(index);
+
                         // Schedule next ad after this ad's duration
                         adTimer = setTimeout(() => {
                             const nextIndex = (index + 1);
@@ -924,14 +953,21 @@
             if (player.readyState >= 2) {
                 tryPlay();
             } else {
+                // Show loading state while waiting for video to be ready
+                loading.classList.remove('hidden');
+                loadingDetails.textContent = 'Loading video...';
+
                 player.oncanplay = () => {
+                    loading.classList.add('hidden');
                     tryPlay();
                 };
+                // Reduced timeout from 5s to 2s for faster fallback
                 setTimeout(() => {
                     if (!isPlaying) {
+                        loading.classList.add('hidden');
                         tryPlay();
                     }
-                }, 5000);
+                }, 2000);
             }
         }
 
@@ -1116,6 +1152,21 @@
                 if (qrOverlay) {
                     qrOverlay.style.display = 'block';
                 }
+            }
+        });
+
+        // When video ends naturally, immediately play next (backup to timer)
+        player.addEventListener('ended', () => {
+            console.log('Video ended naturally, playing next...');
+            if (adTimer) {
+                clearTimeout(adTimer);
+                adTimer = null;
+            }
+            const nextIndex = currentAdIndex + 1;
+            if (nextIndex >= currentPlaylist.length) {
+                fetchPlaylist();
+            } else {
+                playAd(nextIndex);
             }
         });
 
