@@ -222,8 +222,10 @@ async function getPlaylistForScreen(station, platform) {
     const istDate = new Date(now.getTime() + istOffset);
     const today = istDate.toISOString().split('T')[0];
     const currentHour = istDate.getUTCHours();
+    const currentMinute = istDate.getUTCMinutes();
+    const currentTimeMinutes = currentHour * 60 + currentMinute; // Total minutes since midnight
 
-    console.log(`[Playlist] Request for ${station}/${platform}, IST: ${today} ${currentHour}:00`);
+    console.log(`[Playlist] Request for ${station}/${platform}, IST: ${today} ${currentHour}:${currentMinute} (${currentTimeMinutes} mins)`);
 
     let bookings = [];
     let ads = [];
@@ -244,7 +246,11 @@ async function getPlaylistForScreen(station, platform) {
     const stationBookings = bookings.filter(b => b.station === station);
     console.log(`[Playlist] Bookings for this station: ${stationBookings.length}`);
     stationBookings.forEach((b, i) => {
-        console.log(`[Playlist]   [${i}] ID:${b.id} | Platform:${JSON.stringify(b.platforms)} | Date:${b.date} | Time:${b.startTime}-${parseInt(b.startTime)+parseInt(b.hours)} | Payment:${b.paymentStatus}`);
+        const startParts = String(b.startTime).split(':');
+        const startHour = parseInt(startParts[0]) || 0;
+        const startMin = parseInt(startParts[1]) || 0;
+        const endHour = startHour + parseInt(b.hours);
+        console.log(`[Playlist]   [${i}] ID:${b.id} | Platform:${JSON.stringify(b.platforms)} | Date:${b.date} | Time:${startHour}:${startMin.toString().padStart(2, '0')}-${endHour}:${startMin.toString().padStart(2, '0')} | Payment:${b.paymentStatus}`);
     });
 
     const activeBookings = bookings.filter(b => {
@@ -252,12 +258,18 @@ async function getPlaylistForScreen(station, platform) {
         const platformMatch = Array.isArray(b.platforms) && b.platforms.includes(platform);
         const paymentMatch = b.paymentStatus === 'completed';
         const dateMatch = b.date === today;
-        const startHour = parseInt(b.startTime);
-        const endHour = startHour + parseInt(b.hours);
-        const timeMatch = startHour <= currentHour && endHour > currentHour;
+
+        // Parse start time (format: "HH:MM" or "HH")
+        const startTimeParts = String(b.startTime).split(':');
+        const startHour = parseInt(startTimeParts[0]) || 0;
+        const startMinute = parseInt(startTimeParts[1]) || 0;
+        const startTimeMinutes = startHour * 60 + startMinute;
+        const endTimeMinutes = startTimeMinutes + (parseInt(b.hours) * 60);
+
+        const timeMatch = startTimeMinutes <= currentTimeMinutes && endTimeMinutes > currentTimeMinutes;
 
         if (stationMatch && platformMatch) {
-            console.log(`[Playlist] Checking ${b.id}: payment=${paymentMatch}, date=${dateMatch} (${b.date} vs ${today}), time=${timeMatch} (${startHour}-${endHour} vs ${currentHour})`);
+            console.log(`[Playlist] Checking ${b.id}: payment=${paymentMatch}, date=${dateMatch} (${b.date} vs ${today}), time=${timeMatch} (${startHour}:${startMinute}-${endTimeMinutes} mins vs ${currentTimeMinutes} mins)`);
         }
 
         return stationMatch && platformMatch && paymentMatch && dateMatch && timeMatch;
