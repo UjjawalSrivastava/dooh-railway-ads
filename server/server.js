@@ -189,7 +189,7 @@ async function getPlaylistForScreen(station, platform) {
         const startParts = String(b.startTime).split(':');
         const startHour = parseInt(startParts[0]) || 0;
         const startMin = parseInt(startParts[1]) || 0;
-        const endHour = startHour + parseInt(b.hours);
+        const endHour = startHour + parseFloat(b.hours);
     });
 
     const activeBookings = bookings.filter(b => {
@@ -253,7 +253,7 @@ async function getPlaylistForScreen(station, platform) {
         const startHour = parseInt(startTimeParts[0]) || 0;
         const startMinute = parseInt(startTimeParts[1]) || 0;
         const startTimeMinutes = startHour * 60 + startMinute;
-        const endTimeMinutes = startTimeMinutes + (parseInt(b.hours) * 60);
+        const endTimeMinutes = startTimeMinutes + (parseFloat(b.hours) * 60);
 
         const remainingMinutes = endTimeMinutes - currentTimeMinutes;
         const remainingSeconds = remainingMinutes * 60;
@@ -634,8 +634,8 @@ app.post('/api/book', async (req, res) => {
         b.station === station &&
         b.platforms.some(p => platforms.includes(p)) &&
         b.date === date &&
-        parseInt(b.startTime) <= parseInt(startTime) + parseInt(hours) &&
-        parseInt(b.startTime) + parseInt(b.hours) > parseInt(startTime) &&
+        parseFloat(b.startTime) <= parseFloat(startTime) + parseFloat(hours) &&
+        parseFloat(b.startTime) + parseFloat(b.hours) > parseFloat(startTime) &&
         b.paymentStatus === 'completed'
     );
 
