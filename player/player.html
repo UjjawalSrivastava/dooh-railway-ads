@@ -175,6 +175,23 @@
                 height: 40px !important;
                 font-size: 1.25rem !important;
             }
+
+            .playlist-queue {
+                top: 3.5rem;
+                left: 0.5rem;
+                max-width: 200px;
+                padding: 0.5rem;
+                font-size: 0.75rem;
+            }
+
+            .queue-title {
+                font-size: 0.625rem;
+            }
+
+            .queue-item {
+                font-size: 0.75rem;
+                padding: 0.25rem 0;
+            }
         }
 
         /* Responsive: Tablets */
@@ -718,14 +735,31 @@
 
             if (currentPlaylist.length > 1) {
                 playlistQueue.classList.remove('hidden');
-                const upcoming = [];
+
+                // Get unique upcoming ads (deduplicate by customer name)
+                const uniqueUpcoming = [];
+                const seenNames = new Set();
+
                 for (let i = 1; i < currentPlaylist.length; i++) {
                     const idx = (currentAdIndex + i) % currentPlaylist.length;
-                    upcoming.push(currentPlaylist[idx]);
+                    const item = currentPlaylist[idx];
+                    const name = item.customerName || 'Advertisement';
+
+                    if (!seenNames.has(name)) {
+                        seenNames.add(name);
+                        uniqueUpcoming.push({ name, duration: item.duration });
+                    }
                 }
-                queueItems.innerHTML = upcoming.map((item, i) => `
-                    <div class="queue-item">${i + 1}. ${item.customerName || 'Advertisement'}</div>
+
+                // Show max 5 unique upcoming ads
+                queueItems.innerHTML = uniqueUpcoming.slice(0, 5).map((item, i) => `
+                    <div class="queue-item">${i + 1}. ${item.name} (${item.duration}s)</div>
                 `).join('');
+
+                // Add "+X more" if there are more
+                if (uniqueUpcoming.length > 5) {
+                    queueItems.innerHTML += `<div class="queue-item" style="opacity: 0.7;">+${uniqueUpcoming.length - 5} more ads</div>`;
+                }
             } else {
                 playlistQueue.classList.add('hidden');
             }
