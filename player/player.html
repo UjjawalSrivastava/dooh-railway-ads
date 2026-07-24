@@ -788,7 +788,6 @@
         // WebSocket Connection
         function connectWebSocket() {
             if (reconnectAttempts >= maxReconnectAttempts) {
-                console.log('Max reconnection attempts reached, using HTTP polling');
                 useWebSocket = false;
                 return;
             }
@@ -800,7 +799,6 @@
                 ws = new WebSocket(`${WS_BASE}?screenId=${screenId}&station=${encodeURIComponent(station)}&platform=${encodeURIComponent(platform)}`);
 
                 ws.onopen = () => {
-                    console.log('WebSocket connected');
                     connectionStatus.className = 'connection-status connected';
                     connectionStatus.textContent = '🟢 Connected';
                     loadingDetails.textContent = 'Connected, loading playlist...';
@@ -814,7 +812,6 @@
                 };
 
                 ws.onclose = () => {
-                    console.log('WebSocket disconnected');
                     connectionStatus.className = 'connection-status disconnected';
                     connectionStatus.textContent = '🔴 Disconnected';
                     setTimeout(connectWebSocket, 5000);
@@ -836,7 +833,6 @@
                     updatePlaylist(message.data);
                     break;
                 case 'new-booking':
-                    console.log('New booking received:', message.bookingId);
                     fetchPlaylist();
                     break;
             }
@@ -844,7 +840,6 @@
 
         // HTTP Polling Fallback
         function startHttpPolling() {
-            console.log('Starting HTTP polling');
             fetchPlaylist();
             playlistTimer = setInterval(fetchPlaylist, 10000);
         }
@@ -852,13 +847,11 @@
         async function fetchPlaylist() {
             try {
                 const url = `${API_BASE}/player/${encodeURIComponent(station)}/${encodeURIComponent(platform)}/playlist`;
-                console.log('Fetching playlist from:', url);
                 const res = await fetch(url);
                 if (!res.ok) {
                     throw new Error(`HTTP ${res.status}`);
                 }
                 const data = await res.json();
-                console.log('Playlist fetched:', data);
                 updatePlaylist(data.playlist);
                 loading.classList.add('hidden');
             } catch (err) {
@@ -914,7 +907,6 @@
                     tempVideo.onloadedmetadata = () => {
                         if (tempVideo.duration && isFinite(tempVideo.duration)) {
                             adActualDurations[ad.adId] = Math.ceil(tempVideo.duration);
-                            console.log(`Duration fetched for ${ad.customerName}: ${adActualDurations[ad.adId]}s`);
                             updateQueueDisplay(); // Refresh UI with actual duration
                         }
                         tempVideo.removeAttribute('src');
@@ -937,7 +929,6 @@
             });
 
             await Promise.all(promises);
-            console.log('All durations fetched');
             updateQueueDisplay(); // Final refresh
         }
 
@@ -1066,7 +1057,6 @@
             nextVideoPreloader.src = videoUrl;
             nextVideoPreloader.load();
 
-            console.log('Preloading next video:', videoUrl);
         }
 
         function playAd(index) {
@@ -1090,7 +1080,6 @@
             // On Render: origin = "https://dooh-railway-ads.onrender.com"
             // On Local:  origin = "http://localhost:3002"
             const videoUrl = `${window.location.origin}${ad.videoUrl}`;
-            console.log('Playing ad:', videoUrl);
 
             if (player.src !== videoUrl) {
                 player.src = videoUrl;
@@ -1159,7 +1148,6 @@
                         isPlaying = true;
                         currentAdIndex = index;
                         updateQueueDisplay();
-                        console.log('Video playing successfully (muted)');
 
                         // Show unmute button - user must click to enable audio
                         showUnmuteButton();
@@ -1173,7 +1161,6 @@
                         };
 
                         const duration = getDuration() * 1000;
-                        console.log(`Playing for ${getDuration()}s, next ad scheduled`);
 
                         // Preload next video while current is playing (for seamless transition)
                         preloadNextVideo(index);
@@ -1183,7 +1170,6 @@
                             const nextIndex = (index + 1);
                             // If reached end of playlist, fetch fresh playlist from server
                             if (nextIndex >= currentPlaylist.length) {
-                                console.log('Playlist complete, fetching fresh playlist...');
                                 fetchPlaylist();
                             } else {
                                 playAd(nextIndex);
@@ -1208,21 +1194,17 @@
             if (player.readyState >= 2) {
                 tryPlay();
             } else {
-                // Show loading state while waiting for video to be ready
-                loading.classList.remove('hidden');
-                loadingDetails.textContent = 'Loading video...';
-
+                // Don't show loading overlay for smooth transitions
+                // Preload should make videos ready quickly
                 player.oncanplay = () => {
-                    loading.classList.add('hidden');
                     tryPlay();
                 };
-                // Reduced timeout from 5s to 2s for faster fallback
+                // Quick fallback - don't wait too long
                 setTimeout(() => {
                     if (!isPlaying) {
-                        loading.classList.add('hidden');
                         tryPlay();
                     }
-                }, 2000);
+                }, 500);
             }
         }
 
@@ -1249,7 +1231,6 @@
             // If user already clicked unmute before, auto-unmute without showing button
             if (userWantsUnmuted) {
                 player.muted = false;
-                console.log('Auto-unmuted: user preference remembered');
                 return;
             }
 
@@ -1384,7 +1365,6 @@
             console.error('Video error:', e);
             errorCount++;
             if (errorCount >= maxErrorsBeforeFallback) {
-                console.log('Too many video errors, showing default content');
                 showDefaultContent();
                 return;
             }
@@ -1412,7 +1392,6 @@
 
         // When video ends naturally, immediately play next (backup to timer)
         player.addEventListener('ended', () => {
-            console.log('Video ended naturally, playing next...');
             if (adTimer) {
                 clearTimeout(adTimer);
                 adTimer = null;

@@ -1332,31 +1332,22 @@
 
             tbody.innerHTML = ads.map(ad => {
                 // DEBUG: Log ad data
-                console.log('[DEBUG] Processing ad:', ad.id);
-                console.log('[DEBUG] gridfsFileId:', ad.gridfsFileId);
-                console.log('[DEBUG] path:', ad.path);
 
                 // Build video URL - prefer gridfsFileId, fallback to extracting from path
                 // NOTE: ad.id is NOT the fileId, we need gridfsFileId from DB
                 let fileId = ad.gridfsFileId;
-                console.log('[DEBUG] Initial fileId from gridfsFileId:', fileId);
 
                 // If no gridfsFileId, try to extract from path
                 if (!fileId && ad.path && ad.path.includes('/api/video/')) {
-                    console.log('[DEBUG] Trying to extract from path...');
                     // Extract full ObjectId (24 hex chars) from path
                     const match = ad.path.match(/\/api\/video\/([a-f0-9]{24})/i);
-                    console.log('[DEBUG] Regex match result:', match);
                     if (match) {
                         fileId = match[1];
-                        console.log('[DEBUG] Extracted fileId from path:', fileId);
                     } else {
-                        console.log('[DEBUG] Regex did not match path:', ad.path);
                     }
                 }
 
                 const videoUrl = fileId ? `/api/video/${fileId}` : '#';
-                console.log('[DEBUG] Final videoUrl:', videoUrl);
 
                 return `
                     <tr data-ad-id="${ad.id}">
@@ -1528,10 +1519,6 @@
         }
 
         function previewAd(id, videoUrl, status) {
-            console.log('[DEBUG] previewAd called:');
-            console.log('[DEBUG]   id:', id);
-            console.log('[DEBUG]   videoUrl:', videoUrl);
-            console.log('[DEBUG]   status:', status);
 
             currentAdId = id;
             currentAdStatus = status;
@@ -1539,7 +1526,6 @@
             const modal = document.getElementById('video-modal');
             const video = document.getElementById('modal-video');
 
-            console.log('[DEBUG] Setting video.src to:', videoUrl);
             video.src = videoUrl;
             video.load();
             modal.classList.add('active');
@@ -1553,7 +1539,6 @@
 
             // Add loaded listener
             video.onloadeddata = function() {
-                console.log('[DEBUG] Video loaded successfully');
             };
         }
 

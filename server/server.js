@@ -180,7 +180,6 @@ wss.on('connection', (ws, req) => {
 
     if (screenId) {
         screens.set(screenId, { ws, station, platform, connectedAt: new Date() });
-        console.log(`Screen connected: ${screenId} (${station} - ${platform})`);
 
         // Update screen status in DB
         if (useMongoDB) {
@@ -196,7 +195,6 @@ wss.on('connection', (ws, req) => {
             if (useMongoDB) {
                 dbHelpers.updateScreen(screenId, { status: 'offline' });
             }
-            console.log(`Screen disconnected: ${screenId}`);
         }
     });
 });
@@ -225,7 +223,6 @@ async function getPlaylistForScreen(station, platform) {
     const currentMinute = istDate.getUTCMinutes();
     const currentTimeMinutes = currentHour * 60 + currentMinute; // Total minutes since midnight
 
-    console.log(`[Playlist] Request for ${station}/${platform}, IST: ${today} ${currentHour}:${currentMinute} (${currentTimeMinutes} mins)`);
 
     let bookings = [];
     let ads = [];
@@ -239,18 +236,14 @@ async function getPlaylistForScreen(station, platform) {
     }
 
     // 1) Find active bookings
-    console.log(`[Playlist] Total bookings fetched: ${bookings.length}`);
-    console.log(`[Playlist] Checking for station: "${station}", platform: "${platform}", date: "${today}", hour: ${currentHour}`);
 
     // Debug: Log all bookings for this station
     const stationBookings = bookings.filter(b => b.station === station);
-    console.log(`[Playlist] Bookings for this station: ${stationBookings.length}`);
     stationBookings.forEach((b, i) => {
         const startParts = String(b.startTime).split(':');
         const startHour = parseInt(startParts[0]) || 0;
         const startMin = parseInt(startParts[1]) || 0;
         const endHour = startHour + parseInt(b.hours);
-        console.log(`[Playlist]   [${i}] ID:${b.id} | Platform:${JSON.stringify(b.platforms)} | Date:${b.date} | Time:${startHour}:${startMin.toString().padStart(2, '0')}-${endHour}:${startMin.toString().padStart(2, '0')} | Payment:${b.paymentStatus}`);
     });
 
     const activeBookings = bookings.filter(b => {
@@ -269,13 +262,11 @@ async function getPlaylistForScreen(station, platform) {
         const timeMatch = startTimeMinutes <= currentTimeMinutes && endTimeMinutes > currentTimeMinutes;
 
         if (stationMatch && platformMatch) {
-            console.log(`[Playlist] Checking ${b.id}: payment=${paymentMatch}, date=${dateMatch} (${b.date} vs ${today}), time=${timeMatch} (${startHour}:${startMinute}-${endTimeMinutes} mins vs ${currentTimeMinutes} mins)`);
         }
 
         return stationMatch && platformMatch && paymentMatch && dateMatch && timeMatch;
     });
 
-    console.log(`[Playlist] Found ${activeBookings.length} active bookings for current slot`);
 
     // 2) Build weighted playlist - each ad plays based on remaining time / ad duration
     const playlist = [];
@@ -283,7 +274,6 @@ async function getPlaylistForScreen(station, platform) {
     for (const b of activeBookings) {
         const ad = ads.find(a => a.id === b.adId);
         if (!ad) {
-            console.log(`[Playlist] Warning: Ad not found for booking ${b.id}`);
             continue;
         }
 
@@ -324,7 +314,6 @@ async function getPlaylistForScreen(station, platform) {
         }
 
         if (!fileExists) {
-            console.log(`[Playlist] Ad ${ad.id}: file not found`);
             continue;
         }
 
@@ -342,7 +331,6 @@ async function getPlaylistForScreen(station, platform) {
         const adDuration = ad.duration || 30;
         const playCount = Math.floor(remainingSeconds / adDuration);
 
-        console.log(`[Playlist] ${b.id}: ${playCount} plays needed (${remainingMinutes}min/${adDuration}s each)`);
 
         // Add ad to playlist 'playCount' times
         for (let i = 0; i < playCount; i++) {
@@ -362,7 +350,6 @@ async function getPlaylistForScreen(station, platform) {
         [playlist[i], playlist[j]] = [playlist[j], playlist[i]];
     }
 
-    console.log(`[Playlist] Total items in playlist: ${playlist.length}`);
 
     // Log summary per ad
     const adCounts = {};
@@ -370,7 +357,6 @@ async function getPlaylistForScreen(station, platform) {
         adCounts[item.adId] = (adCounts[item.adId] || 0) + 1;
     });
     Object.entries(adCounts).forEach(([adId, count]) => {
-        console.log(`[Playlist] Ad ${adId}: ${count} plays allocated`);
     });
 
     return playlist;
@@ -550,29 +536,23 @@ app.post('/api/upload', (req, res) => {
 // GridFS Video Streaming Endpoint
 app.get('/api/video/:fileId', async (req, res) => {
     const requestedFileId = req.params.fileId;
-    console.log('[Video] Request for fileId:', requestedFileId, '| Length:', requestedFileId ? requestedFileId.length : 0);
 
     // Log first few chars to see if truncated
     if (requestedFileId) {
-        console.log('[Video] FileId preview:', requestedFileId.substring(0, 10) + '...');
     }
     try {
         if (!useMongoDB || !gridfsHelpers.isAvailable()) {
-            console.log('[Video] GridFS not available');
             return res.status(503).json({ error: 'Video storage not available' });
         }
 
         const fileId = req.params.fileId;
-        console.log('[Video] Looking up file:', fileId);
 
         // Validate fileId
         if (!fileId || !mongoose.Types.ObjectId.isValid(fileId)) {
-            console.log('[Video] Invalid fileId format:', fileId);
             return res.status(400).json({ error: 'Invalid video ID format' });
         }
 
         const file = await gridfsHelpers.findFile(fileId);
-        console.log('[Video] File lookup result:', file ? { id: file._id, length: file.length, metadata: file.metadata } : 'not found');
 
         if (!file) {
             return res.status(404).json({ error: 'Video not found' });
@@ -583,7 +563,6 @@ app.get('/api/video/:fileId', async (req, res) => {
 
         // NOTE: Disable range requests to avoid QUIC protocol errors with Cloudflare
         // Always serve full file for reliability
-        console.log('[Video] Serving full file (range requests disabled for QUIC compatibility)');
         res.set({
             'Content-Length': fileLength,
             'Content-Type': contentType,
@@ -591,7 +570,6 @@ app.get('/api/video/:fileId', async (req, res) => {
         });
 
         const downloadStream = gridfsHelpers.downloadFile(fileId);
-        console.log('[Video] Stream created for full file, piping...');
 
         downloadStream.on('error', (err) => {
             console.error('[GridFS] Stream error:', err.message, err.stack);
@@ -602,7 +580,6 @@ app.get('/api/video/:fileId', async (req, res) => {
             }
         });
         downloadStream.on('end', () => {
-            console.log('[Video] Stream ended successfully');
         });
 
         downloadStream.pipe(res);
@@ -734,7 +711,6 @@ app.post('/api/book', async (req, res) => {
             }
         }
 
-        console.log('[Booking] Request:', { adId, state, station, platforms, customerEmail });
 
         if (!adId) {
             return res.status(400).json({ error: 'Missing adId in request' });
@@ -760,7 +736,6 @@ app.post('/api/book', async (req, res) => {
         }
 
         const ad = await dbHelpers.getAdById(adId);
-        console.log('[Booking] Found ad:', ad ? { id: ad.id, status: ad.status } : 'not found');
 
         if (!ad) {
             return res.status(400).json({ error: 'Ad not found with id: ' + adId });
@@ -953,7 +928,6 @@ app.delete('/api/admin/ads/:adId', async (req, res) => {
         if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
             try {
                 await gridfsHelpers.deleteFile(ad.gridfsFileId);
-                console.log('[Admin] Deleted GridFS file:', ad.gridfsFileId);
             } catch (err) {
                 console.error('[Admin] GridFS delete error:', err.message);
             }
@@ -988,7 +962,6 @@ app.post('/api/admin/ads/bulk-delete', async (req, res) => {
             if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
                 try {
                     await gridfsHelpers.deleteFile(ad.gridfsFileId);
-                    console.log('[Admin] Deleted GridFS file:', ad.gridfsFileId);
                 } catch (err) {
                     console.error('[Admin] GridFS delete error:', err.message);
                 }
@@ -1090,18 +1063,14 @@ async function startServer() {
         if (useMongoDB) {
             // Seed database with default data
             await seedDatabase();
-            console.log('✅ Using MongoDB for persistent storage');
         } else {
-            console.log('⚠️ MongoDB connection failed, using file-based storage (ephemeral)');
             initFileDatabase();
         }
     } else {
-        console.log('⚠️ MONGODB_URI not set, using file-based storage (ephemeral)');
         initFileDatabase();
     }
 
     server.listen(PORT, '0.0.0.0', () => {
-        console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║     DOOH Platform - Production Multi-Screen Server         ║
 ╚════════════════════════════════════════════════════════════╝

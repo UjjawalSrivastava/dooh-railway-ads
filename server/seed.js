@@ -44,12 +44,10 @@ const DEFAULT_LOCATIONS = {
 // Seed database with default data
 async function seedDatabase() {
     try {
-        console.log('🌱 Seeding database with default data...');
 
         // Check if already seeded
         const existingLocations = await AdminConfig.findOne({ key: 'locations' });
         if (existingLocations) {
-            console.log('✅ Database already seeded, skipping...');
             return true;
         }
 
@@ -58,7 +56,6 @@ async function seedDatabase() {
             key: 'locations',
             value: DEFAULT_LOCATIONS
         });
-        console.log('✅ Locations seeded');
 
         // Seed admin credentials
         await AdminConfig.create({
@@ -68,16 +65,13 @@ async function seedDatabase() {
                 password: process.env.ADMIN_PASSWORD || 'admin123'
             }
         });
-        console.log('✅ Admin credentials seeded');
 
         // Mark setup complete
         await AdminConfig.create({
             key: 'setupComplete',
             value: true
         });
-        console.log('✅ Setup marked complete');
 
-        console.log('🎉 Database seeding complete!');
         return true;
     } catch (error) {
         console.error('❌ Database seeding failed:', error.message);

@@ -22,18 +22,15 @@ const connectDB = async () => {
             bucketName: 'videos'
         });
 
-        console.log('✅ MongoDB Connected Successfully');
         return true;
     } catch (error) {
         console.error('❌ MongoDB Connection Error:', error.message);
-        console.log('⚠️  Falling back to file-based storage (data will be lost on restart)');
         return false;
     }
 };
 
 // Get GridFS bucket instance
 const getGFSBucket = () => {
-    console.log('[GridFS] getGFSBucket called, gfsBucket:', gfsBucket ? 'exists' : 'null');
     if (!gfsBucket) {
         throw new Error('GridFS not initialized. Connect to MongoDB first.');
     }
@@ -64,7 +61,6 @@ const gridfsHelpers = {
                         length: fileBuffer.length,
                         metadata: metadata
                     };
-                    console.log('[GridFS] Upload complete:', file._id.toString());
                     resolve(file);
                 });
 
@@ -79,11 +75,8 @@ const gridfsHelpers = {
     // Download file from GridFS
     downloadFile(fileId, options = {}) {
         try {
-            console.log('[GridFS] downloadFile called with fileId:', fileId);
-            console.log('[GridFS] downloadFile options:', options);
 
             const bucket = getGFSBucket();
-            console.log('[GridFS] Got bucket:', bucket ? 'yes' : 'no');
 
             if (!fileId) {
                 throw new Error('fileId is null or undefined');
@@ -92,13 +85,10 @@ const gridfsHelpers = {
                 throw new Error('Invalid fileId format: ' + fileId + ' (length: ' + fileId.length + ')');
             }
             const objectId = new mongoose.Types.ObjectId(fileId);
-            console.log('[GridFS] Created ObjectId:', objectId);
 
             if (options.start !== undefined || options.end !== undefined) {
-                console.log('[GridFS] Opening download stream with options');
                 return bucket.openDownloadStream(objectId, options);
             }
-            console.log('[GridFS] Opening download stream without options');
             return bucket.openDownloadStream(objectId);
         } catch (err) {
             console.error('[GridFS] downloadFile error:', err.message);
@@ -115,10 +105,8 @@ const gridfsHelpers = {
 
     // Find file by ID
     async findFile(fileId) {
-        console.log('[GridFS] findFile called with:', fileId, 'type:', typeof fileId);
         try {
             const bucket = getGFSBucket();
-            console.log('[GridFS] Got bucket:', bucket ? 'yes' : 'no');
 
             // Validate fileId format
             if (!fileId || typeof fileId !== 'string') {
@@ -133,11 +121,8 @@ const gridfsHelpers = {
             }
 
             const objectId = new mongoose.Types.ObjectId(fileId);
-            console.log('[GridFS] Created ObjectId:', objectId);
 
-            console.log('[GridFS] Searching for file...');
             const files = await bucket.find({ _id: objectId }).toArray();
-            console.log('[GridFS] Find result:', files.length, 'files found');
             return files[0] || null;
         } catch (err) {
             console.error('[GridFS] findFile error:', err.message, err.stack);
