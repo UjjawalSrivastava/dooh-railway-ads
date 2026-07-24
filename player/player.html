@@ -1160,8 +1160,10 @@
                         clearTimeout(adTimer);
                         adTimer = setTimeout(() => {
                             const nextIndex = (currentAdIndex + 1);
+                            // If reached end of playlist, loop back to first video
                             if (nextIndex >= currentPlaylist.length) {
-                                fetchPlaylist();
+                                currentAdIndex = 0;
+                                playAd(0);
                             } else {
                                 playAd(nextIndex);
                             }
@@ -1199,9 +1201,10 @@
                         // Schedule next ad after this ad's duration
                         adTimer = setTimeout(() => {
                             const nextIndex = (index + 1);
-                            // If reached end of playlist, fetch fresh playlist from server
+                            // If reached end of playlist, loop back to first video
                             if (nextIndex >= currentPlaylist.length) {
-                                fetchPlaylist();
+                                currentAdIndex = 0;
+                                playAd(0);
                             } else {
                                 playAd(nextIndex);
                             }
@@ -1433,7 +1436,9 @@
             }
             const nextIndex = currentAdIndex + 1;
             if (nextIndex >= currentPlaylist.length) {
-                fetchPlaylist();
+                // Loop back to first video for continuous rotation
+                currentAdIndex = 0;
+                playAd(0);
             } else {
                 playAd(nextIndex);
             }
