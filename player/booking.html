@@ -1478,7 +1478,7 @@
             const state = document.getElementById('state-select').value;
             const district = document.getElementById('district-select').value;
             const station = document.getElementById('station-select').value;
-            const hours = parseInt(document.getElementById('duration').value);
+            const hours = parseFloat(document.getElementById('duration').value);
             const primeTime = document.getElementById('prime-time').checked;
 
             if (!state || !district || !station || selectedPlatforms.length === 0) return;
@@ -1551,7 +1551,7 @@
                         district: document.getElementById('district-select').value,
                         station: document.getElementById('station-select').value,
                         platforms: selectedPlatforms,
-                        hours: parseInt(document.getElementById('duration').value),
+                        hours: parseFloat(document.getElementById('duration').value),
                         startTime: document.getElementById('start-time').value,
                         date: document.getElementById('booking-date').value,
                         primeTime: document.getElementById('prime-time').checked,
