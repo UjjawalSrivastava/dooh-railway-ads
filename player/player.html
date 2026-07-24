@@ -1180,7 +1180,11 @@
                         }, duration);
                     })
                     .catch(err => {
-                        console.error('Playback error:', err);
+                        // Ignore AbortError - happens when video is interrupted by new load
+                        if (err.name === 'AbortError') {
+                            console.log('Playback interrupted by new video');
+                            return;
+                        }
                         if (err.name === 'NotAllowedError') {
                             showClickToPlay();
                         } else {
