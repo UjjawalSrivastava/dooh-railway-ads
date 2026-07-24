@@ -277,8 +277,9 @@ async function getPlaylistForScreen(station, platform) {
 
     console.log(`[Playlist] Found ${activeBookings.length} active bookings for current slot`);
 
-    // 2) Build playlist
+    // 2) Build weighted playlist - each ad plays based on remaining time / ad duration
     const playlist = [];
+
     for (const b of activeBookings) {
         const ad = ads.find(a => a.id === b.adId);
         if (!ad) {
@@ -290,31 +291,26 @@ async function getPlaylistForScreen(station, platform) {
         let fileExists = false;
         let actualPath = ad.path;
 
-        // Check if this is a GridFS URL (starts with /api/video/)
+        // Check if this is a GridFS URL
         const isGridFS = ad.path.startsWith('/api/video/');
 
         if (isGridFS) {
-            // For GridFS, check if the file exists in GridFS
             const fileId = ad.gridfsFileId || ad.path.split('/').pop();
             try {
                 if (gridfsHelpers.isAvailable() && fileId) {
                     const file = await gridfsHelpers.findFile(fileId);
                     fileExists = !!file;
-                    console.log(`[Playlist] GridFS check for ${fileId}: exists=${fileExists}`);
                 }
             } catch (e) {
                 fileExists = false;
-                console.log(`[Playlist] GridFS check failed: ${e.message}`);
             }
         } else {
-            // Local file check
             try {
                 fileExists = fs.existsSync(videoPath);
             } catch (e) {
                 fileExists = false;
             }
 
-            // Backward compatibility - try old flat path
             if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
                 const filename = path.basename(ad.path);
                 const oldPath = path.join(__dirname, '../uploads', filename);
@@ -322,32 +318,60 @@ async function getPlaylistForScreen(station, platform) {
                     if (fs.existsSync(oldPath)) {
                         fileExists = true;
                         actualPath = `/uploads/${filename}`;
-                        console.log(`[Playlist] Found at legacy path: ${oldPath}`);
                     }
                 } catch (e) {}
             }
         }
 
-        console.log(`[Playlist] Ad ${ad.id}: exists=${fileExists}`);
+        if (!fileExists) {
+            console.log(`[Playlist] Ad ${ad.id}: file not found`);
+            continue;
+        }
 
-        if (fileExists) {
+        // Calculate remaining time for this booking
+        const startTimeParts = String(b.startTime).split(':');
+        const startHour = parseInt(startTimeParts[0]) || 0;
+        const startMinute = parseInt(startTimeParts[1]) || 0;
+        const startTimeMinutes = startHour * 60 + startMinute;
+        const endTimeMinutes = startTimeMinutes + (parseInt(b.hours) * 60);
+
+        const remainingMinutes = endTimeMinutes - currentTimeMinutes;
+        const remainingSeconds = remainingMinutes * 60;
+
+        // Calculate how many times this ad should play
+        const adDuration = ad.duration || 30;
+        const playCount = Math.floor(remainingSeconds / adDuration);
+
+        console.log(`[Playlist] ${b.id}: ${playCount} plays needed (${remainingMinutes}min/${adDuration}s each)`);
+
+        // Add ad to playlist 'playCount' times
+        for (let i = 0; i < playCount; i++) {
             playlist.push({
                 bookingId: b.id,
                 videoUrl: actualPath,
-                duration: ad.duration || 30,
+                duration: adDuration,
                 customerName: b.customerName,
-                startTime: b.startTime,
-                hours: b.hours,
-                fileExists
+                adId: ad.id
             });
         }
     }
 
-    console.log(`[Playlist] Built playlist with ${playlist.length} items`);
+    // Shuffle playlist for fair rotation
+    for (let i = playlist.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [playlist[i], playlist[j]] = [playlist[j], playlist[i]];
+    }
 
-    // 3) Fallback: Show default content when no active bookings
-    // REMOVED: Old fallback was showing videos before scheduled time
-    // Now only shows videos during their actual scheduled time slot
+    console.log(`[Playlist] Total items in playlist: ${playlist.length}`);
+
+    // Log summary per ad
+    const adCounts = {};
+    playlist.forEach(item => {
+        adCounts[item.adId] = (adCounts[item.adId] || 0) + 1;
+    });
+    Object.entries(adCounts).forEach(([adId, count]) => {
+        console.log(`[Playlist] Ad ${adId}: ${count} plays allocated`);
+    });
 
     return playlist;
 }
