@@ -237,14 +237,31 @@ async function getPlaylistForScreen(station, platform) {
     }
 
     // 1) Find active bookings
-    const activeBookings = bookings.filter(b =>
-        b.station === station &&
-        b.platforms.includes(platform) &&
-        b.paymentStatus === 'completed' &&
-        b.date === today &&
-        parseInt(b.startTime) <= currentHour &&
-        parseInt(b.startTime) + parseInt(b.hours) > currentHour
-    );
+    console.log(`[Playlist] Total bookings fetched: ${bookings.length}`);
+    console.log(`[Playlist] Checking for station: "${station}", platform: "${platform}", date: "${today}", hour: ${currentHour}`);
+
+    // Debug: Log all bookings for this station
+    const stationBookings = bookings.filter(b => b.station === station);
+    console.log(`[Playlist] Bookings for this station: ${stationBookings.length}`);
+    stationBookings.forEach((b, i) => {
+        console.log(`[Playlist]   [${i}] ID:${b.id} | Platform:${JSON.stringify(b.platforms)} | Date:${b.date} | Time:${b.startTime}-${parseInt(b.startTime)+parseInt(b.hours)} | Payment:${b.paymentStatus}`);
+    });
+
+    const activeBookings = bookings.filter(b => {
+        const stationMatch = b.station === station;
+        const platformMatch = Array.isArray(b.platforms) && b.platforms.includes(platform);
+        const paymentMatch = b.paymentStatus === 'completed';
+        const dateMatch = b.date === today;
+        const startHour = parseInt(b.startTime);
+        const endHour = startHour + parseInt(b.hours);
+        const timeMatch = startHour <= currentHour && endHour > currentHour;
+
+        if (stationMatch && platformMatch) {
+            console.log(`[Playlist] Checking ${b.id}: payment=${paymentMatch}, date=${dateMatch} (${b.date} vs ${today}), time=${timeMatch} (${startHour}-${endHour} vs ${currentHour})`);
+        }
+
+        return stationMatch && platformMatch && paymentMatch && dateMatch && timeMatch;
+    });
 
     console.log(`[Playlist] Found ${activeBookings.length} active bookings for current slot`);
 
@@ -730,8 +747,18 @@ app.post('/api/book', async (req, res) => {
             return res.status(503).json({ error: 'Database not available. Cannot create booking.' });
         }
 
-        const { adId, state, district, station, platforms, hours, startTime, date, primeTime,
+        let { adId, state, district, station, platforms, hours, startTime, date, primeTime,
                 customerName, customerEmail, customerPhone, priceDetails } = req.body;
+
+        // Fix: Parse platforms if it's a string
+        if (typeof platforms === 'string') {
+            try {
+                platforms = JSON.parse(platforms);
+            } catch (e) {
+                console.error('[Booking] Failed to parse platforms:', e.message);
+                platforms = [platforms]; // fallback: treat as single platform
+            }
+        }
 
         console.log('[Booking] Request:', { adId, state, station, platforms, customerEmail });
 

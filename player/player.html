@@ -298,6 +298,13 @@
             to { transform: rotate(360deg); }
         }
 
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+            10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            90% { opacity: 1; transform: translateX(-50%) translateY(0); }
+            100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        }
+
         /* QR Code */
         .qr-overlay {
             position: absolute;
@@ -683,6 +690,11 @@
                         setTimeout(() => {
                             player.muted = false;
                             console.log('Attempted to unmute video');
+                            // Check if unmute succeeded
+                            if (player.muted) {
+                                console.log('Unmute blocked by browser - user interaction needed');
+                                showAudioHint();
+                            }
                         }, 100);
 
                         // Schedule next ad after this ad's duration
@@ -728,6 +740,29 @@
                 clickPrompt.remove();
             };
             document.querySelector('.display-container').appendChild(clickPrompt);
+        }
+
+        function showAudioHint() {
+            // Show brief hint that audio requires interaction
+            const hint = document.createElement('div');
+            hint.id = 'audio-hint';
+            hint.style.cssText = 'position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:white;padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;z-index:100;animation:fadeInOut 5s forwards;';
+            hint.innerHTML = '🔇 Click anywhere to enable audio';
+            document.querySelector('.display-container').appendChild(hint);
+
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                const h = document.getElementById('audio-hint');
+                if (h) h.remove();
+            }, 5000);
+
+            // Remove on first click
+            document.addEventListener('click', function removeHint() {
+                player.muted = false; // Try to unmute on user interaction
+                const h = document.getElementById('audio-hint');
+                if (h) h.remove();
+                document.removeEventListener('click', removeHint);
+            }, { once: true });
         }
 
         function showDefaultContent() {
