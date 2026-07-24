@@ -547,14 +547,24 @@ app.get('/api/video/:fileId', async (req, res) => {
         let diskFilePath = null;
 
         // Try to find ad record by gridfsFileId (MongoDB or file-based)
-        if (useMongoDB) {
-            // Get all ads and find by gridfsFileId
-            const { ads } = await dbHelpers.getAds({ limit: 1000 });
-            ad = ads.find(a => a.gridfsFileId === fileId);
-        } else {
-            // File-based lookup
-            const db = getFileDatabase();
-            ad = db.ads.find(a => a.gridfsFileId === fileId);
+        try {
+            if (useMongoDB) {
+                // Get all ads and find by gridfsFileId
+                const { ads } = await dbHelpers.getAds({ limit: 1000 });
+                ad = ads.find(a => a.gridfsFileId === fileId);
+            } else {
+                // File-based lookup
+                const db = getFileDatabase();
+                ad = db.ads.find(a => a.gridfsFileId === fileId);
+            }
+        } catch (dbError) {
+            // Database error, try file-based fallback
+            try {
+                const db = getFileDatabase();
+                ad = db.ads.find(a => a.gridfsFileId === fileId);
+            } catch (e) {
+                // Ignore file-based errors too
+            }
         }
 
         // If ad found with path, try to serve from disk
