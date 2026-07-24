@@ -1077,25 +1077,7 @@ async function startServer() {
     }
 
     server.listen(PORT, '0.0.0.0', () => {
-╔════════════════════════════════════════════════════════════╗
-║     DOOH Platform - Production Multi-Screen Server         ║
-╚════════════════════════════════════════════════════════════╝
-
-🌐 Server running on:
-   Local:   http://localhost:${PORT}
-   Network: http://0.0.0.0:${PORT}
-
-💾 Database: ${useMongoDB ? '✅ MongoDB (Persistent)' : '⚠️  File-based (Ephemeral)'}
-${!useMongoDB ? '   Set MONGODB_URI for persistent storage' : ''}
-
-📺 Screen URLs:
-   Kanpur Platform 1:  http://YOUR_IP:${PORT}/player.html?station=Kanpur%20Central%20(CNB)&platform=Platform%201&screenId=CNB-P1
-
-🔧 Admin Panel: http://YOUR_IP:${PORT}/admin.html
-   Default Login: admin / admin123
-
-═══════════════════════════════════════════════════════════════
-        `);
+        console.log(`Server running on port ${PORT}`);
     });
 }
 
