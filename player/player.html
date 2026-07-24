@@ -610,7 +610,8 @@
         let clearingPlayer = false;
         let errorCount = 0;
         const maxErrorsBeforeFallback = 3;
-        let userWantsUnmuted = false; // Track if user clicked unmute once
+        let userWantsUnmuted = false;
+        let adPlayCounts = {}; // Track play counts per ad
 
         // Clock
         function updateClock() {
@@ -719,6 +720,8 @@
 
             if (realAds.length > 0) {
                 currentPlaylist = realAds;
+                // Reset play counts when new playlist fetched
+                adPlayCounts = {};
                 updateQueueDisplay();
                 if (!isPlaying) {
                     currentAdIndex = 0;
@@ -751,10 +754,15 @@
                     }
                 }
 
-                // Show max 5 unique upcoming ads
-                queueItems.innerHTML = uniqueUpcoming.slice(0, 5).map((item, i) => `
-                    <div class="queue-item">${i + 1}. ${item.name} (${item.duration}s)</div>
-                `).join('');
+                // Show max 5 unique upcoming ads with actual duration
+                queueItems.innerHTML = uniqueUpcoming.slice(0, 5).map((item, i) => {
+                    // Get actual duration from player if current ad, else use item.duration
+                    let displayDuration = item.duration;
+                    if (i === 0 && player.duration && isFinite(player.duration)) {
+                        displayDuration = Math.ceil(player.duration);
+                    }
+                    return `<div class="queue-item">${i + 1}. ${item.name} (${displayDuration}s)</div>`;
+                }).join('');
 
                 // Add "+X more" if there are more
                 if (uniqueUpcoming.length > 5) {
@@ -802,13 +810,29 @@
             loading.classList.add('hidden');
 
             document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
-            document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • ${index + 1}/${currentPlaylist.length}`;
 
-            // Update duration display once video metadata is loaded
+            // Calculate total plays for this ad from playlist
+            const totalPlaysForThisAd = currentPlaylist.filter(item => item.adId === ad.adId).length;
+
+            // Increment play count for this ad
+            adPlayCounts[ad.adId] = (adPlayCounts[ad.adId] || 0) + 1;
+            const currentPlayCount = adPlayCounts[ad.adId];
+
+            // Display: actualDuration + play count (e.g., "12 sec • 20/300")
+            const updateMetaDisplay = (duration) => {
+                document.getElementById('ad-meta').textContent = `${duration} sec • ${currentPlayCount}/${totalPlaysForThisAd}`;
+            };
+
+            // Initial display with ad.duration
+            updateMetaDisplay(ad.duration || 30);
+
+            // Update with actual duration once loaded
             player.onloadedmetadata = () => {
                 if (player.duration && isFinite(player.duration)) {
                     const actualDuration = Math.ceil(player.duration);
-                    document.getElementById('ad-meta').textContent = `${actualDuration} sec • ${index + 1}/${currentPlaylist.length}`;
+                    updateMetaDisplay(actualDuration);
+                    // Also update queue with actual duration
+                    updateQueueDisplay();
                 }
             };
 
