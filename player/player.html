@@ -811,16 +811,9 @@
 
             document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
 
-            // Calculate total plays for this ad from playlist
-            const totalPlaysForThisAd = currentPlaylist.filter(item => item.adId === ad.adId).length;
-
-            // Increment play count for this ad
-            adPlayCounts[ad.adId] = (adPlayCounts[ad.adId] || 0) + 1;
-            const currentPlayCount = adPlayCounts[ad.adId];
-
-            // Display: actualDuration + play count (e.g., "12 sec • 20/300")
+            // Display: actualDuration + overall playlist position (e.g., "12 sec • 20/900")
             const updateMetaDisplay = (duration) => {
-                document.getElementById('ad-meta').textContent = `${duration} sec • ${currentPlayCount}/${totalPlaysForThisAd}`;
+                document.getElementById('ad-meta').textContent = `${duration} sec • ${index + 1}/${currentPlaylist.length}`;
             };
 
             // Initial display with ad.duration
@@ -831,8 +824,6 @@
                 if (player.duration && isFinite(player.duration)) {
                     const actualDuration = Math.ceil(player.duration);
                     updateMetaDisplay(actualDuration);
-                    // Also update queue with actual duration
-                    updateQueueDisplay();
                 }
             };
 
