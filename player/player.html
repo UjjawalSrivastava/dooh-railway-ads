@@ -408,8 +408,8 @@
             <div id="error-text">Failed to connect to server</div>
         </div>
 
-        <!-- Video Player (no loop - playlist rotation via timer, muted for autoplay policy) -->
-        <video id="main-player" playsinline preload="metadata" muted></video>
+        <!-- Video Player (no loop - playlist rotation via timer, unmuted for audio) -->
+        <video id="main-player" playsinline preload="metadata"></video>
         <!-- Hidden placeholder to prevent video error when no source -->
         <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚂</text></svg>">
 
@@ -434,6 +434,7 @@
                     <div class="customer" id="ad-customer">Advertisement</div>
                     <div class="meta" id="ad-meta">30 sec loop</div>
                 </div>
+                <div id="mute-indicator" style="margin-left: 10px; font-size: 1.2rem; opacity: 0.7;"></div>
             </div>
             <div class="station-info">
                 <div class="name" id="station-info-name">Station</div>
@@ -668,12 +669,21 @@
             document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • ${index + 1}/${currentPlaylist.length}`;
 
             const tryPlay = () => {
+                // Start muted for autoplay policy, then try to unmute
+                player.muted = true;
+
                 player.play()
                     .then(() => {
                         isPlaying = true;
                         currentAdIndex = index;
                         updateQueueDisplay();
                         console.log('Video playing successfully');
+
+                        // Try to unmute after successful autoplay
+                        setTimeout(() => {
+                            player.muted = false;
+                            console.log('Attempted to unmute video');
+                        }, 100);
 
                         // Schedule next ad after this ad's duration
                         const duration = (ad.duration || 30) * 1000;
@@ -826,6 +836,17 @@
                 }
             }
         });
+
+        // Mute indicator update
+        function updateMuteIndicator() {
+            const indicator = document.getElementById('mute-indicator');
+            if (indicator) {
+                indicator.textContent = player.muted ? '🔇' : '🔊';
+                indicator.style.opacity = player.muted ? '0.5' : '1';
+            }
+        }
+        player.addEventListener('volumechange', updateMuteIndicator);
+        setInterval(updateMuteIndicator, 1000); // Check every second
 
         // Initialize
         init();
