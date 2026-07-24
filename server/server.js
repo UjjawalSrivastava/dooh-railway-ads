@@ -14,7 +14,7 @@ const WebSocket = require('ws');
 const http = require('http');
 require('dotenv').config();
 
-const { connectDB, dbHelpers } = require('./db-sqlite');
+const { connectDB, dbHelpers, DB_PATH } = require('./db-sqlite');
 // const setupWizard = require('./setup');  // Temporarily disabled
 
 const app = express();

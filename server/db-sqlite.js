@@ -426,5 +426,6 @@ const gridfsHelpers = {
 module.exports = {
     connectDB,
     dbHelpers,
-    gridfsHelpers
+    gridfsHelpers,
+    DB_PATH
 };
