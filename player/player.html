@@ -872,8 +872,13 @@
 
             if (realAds.length > 0) {
                 currentPlaylist = realAds;
-                // Reset play counts when new playlist fetched
+                // Reset play counts and durations when new playlist fetched
                 adPlayCounts = {};
+                adActualDurations = {};
+
+                // Pre-fetch all video durations in background
+                prefetchAllDurations(realAds);
+
                 updateQueueDisplay();
                 if (!isPlaying) {
                     currentAdIndex = 0;
@@ -883,6 +888,57 @@
                 currentPlaylist = [];
                 showDefaultContent();
             }
+        }
+
+        // Pre-fetch durations for all videos in playlist
+        async function prefetchAllDurations(ads) {
+            const promises = ads.map(async (ad) => {
+                // Skip if already fetched
+                if (adActualDurations[ad.adId]) return;
+
+                // Try to get from server duration first (if accurate)
+                if (ad.duration && ad.duration !== 30) {
+                    adActualDurations[ad.adId] = ad.duration;
+                    return;
+                }
+
+                // Fetch actual duration from video file
+                return new Promise((resolve) => {
+                    const tempVideo = document.createElement('video');
+                    tempVideo.preload = 'metadata';
+                    tempVideo.style.display = 'none';
+
+                    const videoUrl = `${window.location.origin}${ad.videoUrl}`;
+                    tempVideo.src = videoUrl;
+
+                    tempVideo.onloadedmetadata = () => {
+                        if (tempVideo.duration && isFinite(tempVideo.duration)) {
+                            adActualDurations[ad.adId] = Math.ceil(tempVideo.duration);
+                            console.log(`Duration fetched for ${ad.customerName}: ${adActualDurations[ad.adId]}s`);
+                            updateQueueDisplay(); // Refresh UI with actual duration
+                        }
+                        tempVideo.removeAttribute('src');
+                        tempVideo.load();
+                        resolve();
+                    };
+
+                    tempVideo.onerror = () => {
+                        // Keep default duration on error
+                        resolve();
+                    };
+
+                    // Timeout after 5 seconds
+                    setTimeout(() => {
+                        tempVideo.removeAttribute('src');
+                        tempVideo.load();
+                        resolve();
+                    }, 5000);
+                });
+            });
+
+            await Promise.all(promises);
+            console.log('All durations fetched');
+            updateQueueDisplay(); // Final refresh
         }
 
         function updateQueueDisplay() {
