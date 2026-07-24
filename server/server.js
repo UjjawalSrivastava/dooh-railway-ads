@@ -524,7 +524,13 @@ app.post('/api/upload', (req, res) => {
 
 // GridFS Video Streaming Endpoint
 app.get('/api/video/:fileId', async (req, res) => {
-    console.log('[Video] Request for fileId:', req.params.fileId);
+    const requestedFileId = req.params.fileId;
+    console.log('[Video] Request for fileId:', requestedFileId, '| Length:', requestedFileId ? requestedFileId.length : 0);
+
+    // Log first few chars to see if truncated
+    if (requestedFileId) {
+        console.log('[Video] FileId preview:', requestedFileId.substring(0, 10) + '...');
+    }
     try {
         if (!useMongoDB || !gridfsHelpers.isAvailable()) {
             console.log('[Video] GridFS not available');

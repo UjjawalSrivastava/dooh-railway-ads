@@ -1292,22 +1292,26 @@
 
             tbody.innerHTML = ads.map(ad => {
                 // Build video URL - prefer gridfsFileId, fallback to extracting from path
-                let videoUrl;
-                if (ad.gridfsFileId) {
-                    videoUrl = `/api/video/${ad.gridfsFileId}`;
-                } else if (ad.path && ad.path.includes('/api/video/')) {
-                    // Extract fileId from path like /api/video/FILEID
-                    const match = ad.path.match(/\/api\/video\/([^\/\s]+)/);
-                    videoUrl = match ? `/api/video/${match[1]}` : ad.path;
-                } else {
-                    videoUrl = ad.path || '#';
+                // NOTE: ad.id is NOT the fileId, we need gridfsFileId from DB
+                let fileId = ad.gridfsFileId;
+
+                // If no gridfsFileId, try to extract from path
+                if (!fileId && ad.path && ad.path.includes('/api/video/')) {
+                    // Extract full ObjectId (24 hex chars) from path
+                    const match = ad.path.match(/\/api\/video\/([a-f0-9]{24})/i);
+                    if (match) {
+                        fileId = match[1];
+                    }
                 }
+
+                const videoUrl = fileId ? `/api/video/${fileId}` : '#';
+
                 return `
                     <tr data-ad-id="${ad.id}">
                         <td><input type="checkbox" class="checkbox ad-checkbox" value="${ad.id}" onchange="toggleAdSelection('${ad.id}')"></td>
                         <td>
-                            <div class="video-thumb" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">
-                                ▶️
+                            <div class="video-thumb" ${fileId ? `onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')"` : ''} style="${!fileId ? 'opacity: 0.5; cursor: not-allowed;' : 'cursor: pointer;'}">
+                                ${fileId ? '▶️' : '❌'}
                             </div>
                         </td>
                         <td>${ad.id.slice(0, 8)}...</td>
@@ -1317,7 +1321,8 @@
                         <td>
                             ${ad.status === 'pending' || ad.status === 'analyzing' ?
                                 '<span>Auto-moderating...</span>' :
-                                `<button class="btn btn-secondary" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">View</button>`
+                                fileId ? `<button class="btn btn-secondary" onclick="previewAd('${ad.id}', '${videoUrl}', '${ad.status}')">View</button>` :
+                                '<span style="color: var(--danger);">No video</span>'
                             }
                             <button class="btn btn-danger" onclick="deleteAd('${ad.id}')" title="Delete">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
