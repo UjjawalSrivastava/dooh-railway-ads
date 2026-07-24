@@ -1128,7 +1128,7 @@
             // Initial display with ad.duration
             updateMetaDisplay(ad.duration || 30);
 
-            // Update with actual duration once loaded
+            // Update with actual duration once loaded - also reset timer
             player.onloadedmetadata = () => {
                 if (player.duration && isFinite(player.duration)) {
                     const actualDuration = Math.ceil(player.duration);
@@ -1139,6 +1139,19 @@
                     updateMetaDisplay(actualDuration);
                     // Refresh queue to show actual duration
                     updateQueueDisplay();
+
+                    // Reset timer with actual duration
+                    if (adTimer) {
+                        clearTimeout(adTimer);
+                        adTimer = setTimeout(() => {
+                            const nextIndex = (currentAdIndex + 1);
+                            if (nextIndex >= currentPlaylist.length) {
+                                fetchPlaylist();
+                            } else {
+                                playAd(nextIndex);
+                            }
+                        }, actualDuration * 1000);
+                    }
                 }
             };
 
