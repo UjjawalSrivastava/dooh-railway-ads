@@ -470,6 +470,46 @@
             gap: 1rem;
         }
 
+        /* Video in modal - responsive */
+        #modal-video {
+            width: 100%;
+            max-height: 60vh;
+            object-fit: contain;
+            background: #000;
+            border-radius: 0.5rem;
+        }
+
+        /* Responsive modal */
+        @media (max-width: 768px) {
+            .modal {
+                width: 95%;
+                max-width: 95%;
+                margin: 1rem;
+            }
+
+            .modal-header {
+                padding: 1rem;
+            }
+
+            .modal-body {
+                padding: 1rem;
+                max-height: 70vh;
+            }
+
+            .modal-footer {
+                padding: 1rem;
+                flex-direction: column;
+            }
+
+            .modal-footer .btn {
+                width: 100%;
+            }
+
+            #modal-video {
+                max-height: 50vh;
+            }
+        }
+
         /* Login Page */
         .login-page {
             min-height: 100vh;
@@ -971,7 +1011,7 @@
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             <div class="modal-body">
-                <video id="modal-video" controls style="width: 100%; border-radius: 0.5rem;"></video>
+                <video id="modal-video" controls></video>
                 <div id="modal-details" style="margin-top: 1rem;"></div>
             </div>
             <div class="modal-footer">
