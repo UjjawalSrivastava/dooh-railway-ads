@@ -537,9 +537,6 @@ app.post('/api/upload', (req, res) => {
 app.get('/api/video/:fileId', async (req, res) => {
     const requestedFileId = req.params.fileId;
 
-    // Log first few chars to see if truncated
-    if (requestedFileId) {
-    }
     try {
         if (!useMongoDB || !gridfsHelpers.isAvailable()) {
             return res.status(503).json({ error: 'Video storage not available' });
@@ -561,30 +558,39 @@ app.get('/api/video/:fileId', async (req, res) => {
         const contentType = file.metadata?.contentType || 'video/mp4';
         const fileLength = file.length;
 
-        // NOTE: Disable range requests to avoid QUIC protocol errors with Cloudflare
-        // Always serve full file for reliability
+        // Set proper headers for video streaming
         res.set({
             'Content-Length': fileLength,
             'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=3600'
+            'Cache-Control': 'public, max-age=3600',
+            'Accept-Ranges': 'bytes'
         });
 
         const downloadStream = gridfsHelpers.downloadFile(fileId);
+        let streamEnded = false;
+
+        // Handle client disconnect
+        req.on('close', () => {
+            if (!streamEnded) {
+                downloadStream.destroy();
+            }
+        });
 
         downloadStream.on('error', (err) => {
-            console.error('[GridFS] Stream error:', err.message, err.stack);
+            streamEnded = true;
             if (!res.headersSent) {
                 res.status(500).json({ error: 'Stream error' });
             } else {
                 res.destroy();
             }
         });
+
         downloadStream.on('end', () => {
+            streamEnded = true;
         });
 
         downloadStream.pipe(res);
     } catch (error) {
-        console.error('[GridFS] Error streaming video:', error.message, error.stack);
         res.status(500).json({ error: 'Failed to stream video: ' + error.message });
     }
 });

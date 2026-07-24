@@ -12,9 +12,13 @@ const connectDB = async () => {
         const mongoURI = process.env.MONGODB_URI || 'mongodb://localhost:27017/dooh-platform';
 
         const conn = await mongoose.connect(mongoURI, {
-            maxPoolSize: 10,
+            maxPoolSize: 50,
             serverSelectionTimeoutMS: 5000,
-            socketTimeoutMS: 45000,
+            socketTimeoutMS: 0,
+            connectTimeoutMS: 10000,
+            maxIdleTimeMS: 60000,
+            retryWrites: true,
+            retryReads: true,
         });
 
         // Initialize GridFS bucket
