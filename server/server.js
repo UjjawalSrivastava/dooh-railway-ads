@@ -261,23 +261,42 @@ async function getPlaylistForScreen(station, platform) {
         let fileExists = false;
         let actualPath = ad.path;
 
-        try {
-            fileExists = fs.existsSync(videoPath);
-        } catch (e) {
-            fileExists = false;
-        }
+        // Check if this is a GridFS URL (starts with /api/video/)
+        const isGridFS = ad.path.startsWith('/api/video/');
 
-        // Backward compatibility - try old flat path
-        if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
-            const filename = path.basename(ad.path);
-            const oldPath = path.join(__dirname, '../uploads', filename);
+        if (isGridFS) {
+            // For GridFS, check if the file exists in GridFS
+            const fileId = ad.gridfsFileId || ad.path.split('/').pop();
             try {
-                if (fs.existsSync(oldPath)) {
-                    fileExists = true;
-                    actualPath = `/uploads/${filename}`;
-                    console.log(`[Playlist] Found at legacy path: ${oldPath}`);
+                if (gridfsHelpers.isAvailable() && fileId) {
+                    const file = await gridfsHelpers.findFile(fileId);
+                    fileExists = !!file;
+                    console.log(`[Playlist] GridFS check for ${fileId}: exists=${fileExists}`);
                 }
-            } catch (e) {}
+            } catch (e) {
+                fileExists = false;
+                console.log(`[Playlist] GridFS check failed: ${e.message}`);
+            }
+        } else {
+            // Local file check
+            try {
+                fileExists = fs.existsSync(videoPath);
+            } catch (e) {
+                fileExists = false;
+            }
+
+            // Backward compatibility - try old flat path
+            if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
+                const filename = path.basename(ad.path);
+                const oldPath = path.join(__dirname, '../uploads', filename);
+                try {
+                    if (fs.existsSync(oldPath)) {
+                        fileExists = true;
+                        actualPath = `/uploads/${filename}`;
+                        console.log(`[Playlist] Found at legacy path: ${oldPath}`);
+                    }
+                } catch (e) {}
+            }
         }
 
         console.log(`[Playlist] Ad ${ad.id}: exists=${fileExists}`);
@@ -315,21 +334,36 @@ async function getPlaylistForScreen(station, platform) {
             let fileExists = false;
             let actualPath = ad.path;
 
-            try {
-                fileExists = fs.existsSync(videoPath);
-            } catch (e) {
-                fileExists = false;
-            }
+            // Check if this is a GridFS URL
+            const isGridFS = ad.path.startsWith('/api/video/');
 
-            if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
-                const filename = path.basename(ad.path);
-                const oldPath = path.join(__dirname, '../uploads', filename);
+            if (isGridFS) {
+                const fileId = ad.gridfsFileId || ad.path.split('/').pop();
                 try {
-                    if (fs.existsSync(oldPath)) {
-                        fileExists = true;
-                        actualPath = `/uploads/${filename}`;
+                    if (gridfsHelpers.isAvailable() && fileId) {
+                        const file = await gridfsHelpers.findFile(fileId);
+                        fileExists = !!file;
                     }
-                } catch (e) {}
+                } catch (e) {
+                    fileExists = false;
+                }
+            } else {
+                try {
+                    fileExists = fs.existsSync(videoPath);
+                } catch (e) {
+                    fileExists = false;
+                }
+
+                if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
+                    const filename = path.basename(ad.path);
+                    const oldPath = path.join(__dirname, '../uploads', filename);
+                    try {
+                        if (fs.existsSync(oldPath)) {
+                            fileExists = true;
+                            actualPath = `/uploads/${filename}`;
+                        }
+                    } catch (e) {}
+                }
             }
 
             if (fileExists) {
@@ -577,10 +611,13 @@ app.get('/api/video/:fileId', async (req, res) => {
                 'Cache-Control': 'public, max-age=3600'
             });
 
-            // Build download options - only include end if needed
+            // Build download options - must include BOTH start AND end for GridFS
             const downloadOptions = {};
-            if (start !== undefined) downloadOptions.start = start;
-            if (end !== undefined && end < fileLength - 1) downloadOptions.end = end;
+            if (start !== undefined && start > 0) {
+                downloadOptions.start = start;
+            }
+            // GridFS requires end to be set if start is set, default to file end
+            downloadOptions.end = (end !== undefined && end < fileLength - 1) ? end : fileLength - 1;
             console.log('[Video] Download options:', downloadOptions);
 
             const downloadStream = gridfsHelpers.downloadFile(fileId, downloadOptions);
