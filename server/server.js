@@ -1059,22 +1059,9 @@ app.get('/admin.html', (req, res) => {
 
 // Start server
 async function startServer() {
-    // Check for MongoDB URI
-    const mongoUri = process.env.MONGODB_URI;
-
-    if (mongoUri) {
-        // Try to connect to MongoDB
-        useMongoDB = await connectDB();
-
-        if (useMongoDB) {
-            // Seed database with default data
-            await seedDatabase();
-        } else {
-            initFileDatabase();
-        }
-    } else {
-        initFileDatabase();
-    }
+    // Force file-based storage to avoid MongoDB connection issues
+    useMongoDB = false;
+    initFileDatabase();
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Server running on port ${PORT}`);
