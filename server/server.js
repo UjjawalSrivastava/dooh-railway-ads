@@ -533,34 +533,67 @@ app.post('/api/upload', (req, res) => {
     });
 });
 
-// GridFS Video Streaming Endpoint
+// Video Streaming Endpoint - Serve from disk first, fallback to GridFS
 app.get('/api/video/:fileId', async (req, res) => {
-    const requestedFileId = req.params.fileId;
-
     try {
-        if (!useMongoDB || !gridfsHelpers.isAvailable()) {
-            return res.status(503).json({ error: 'Video storage not available' });
-        }
-
         const fileId = req.params.fileId;
 
         // Validate fileId
-        if (!fileId || !mongoose.Types.ObjectId.isValid(fileId)) {
+        if (!fileId) {
+            return res.status(400).json({ error: 'Video ID required' });
+        }
+
+        // First try to serve from local disk (uploads folder)
+        // Find file by checking all platform subfolders
+        const uploadsDir = path.join(__dirname, '../uploads');
+        let diskFilePath = null;
+
+        if (fs.existsSync(uploadsDir)) {
+            const platformFolders = fs.readdirSync(uploadsDir);
+            for (const folder of platformFolders) {
+                const folderPath = path.join(uploadsDir, folder);
+                if (fs.statSync(folderPath).isDirectory()) {
+                    // Check for file with matching name/pattern
+                    const files = fs.readdirSync(folderPath);
+                    // Look for file that contains the fileId or matches pattern
+                    const matchedFile = files.find(f => f.includes(fileId) || f.startsWith(fileId.substring(0, 8)));
+                    if (matchedFile) {
+                        diskFilePath = path.join(folderPath, matchedFile);
+                        break;
+                    }
+                }
+            }
+        }
+
+        // If found on disk, serve directly
+        if (diskFilePath && fs.existsSync(diskFilePath)) {
+            const stat = fs.statSync(diskFilePath);
+            res.set({
+                'Content-Length': stat.size,
+                'Content-Type': 'video/mp4',
+                'Cache-Control': 'public, max-age=3600',
+                'Accept-Ranges': 'bytes'
+            });
+            return fs.createReadStream(diskFilePath).pipe(res);
+        }
+
+        // Fallback to GridFS if available
+        if (!useMongoDB || !gridfsHelpers.isAvailable()) {
+            return res.status(404).json({ error: 'Video not found' });
+        }
+
+        if (!mongoose.Types.ObjectId.isValid(fileId)) {
             return res.status(400).json({ error: 'Invalid video ID format' });
         }
 
         const file = await gridfsHelpers.findFile(fileId);
-
         if (!file) {
-            return res.status(404).json({ error: 'Video not found' });
+            return res.status(404).json({ error: 'Video not found in storage' });
         }
 
         const contentType = file.metadata?.contentType || 'video/mp4';
-        const fileLength = file.length;
-
-        // Set proper headers for video streaming
         res.set({
-            'Content-Length': fileLength,
+            'Content-Length': file.length,
             'Content-Type': contentType,
             'Cache-Control': 'public, max-age=3600',
             'Accept-Ranges': 'bytes'
@@ -569,7 +602,6 @@ app.get('/api/video/:fileId', async (req, res) => {
         const downloadStream = gridfsHelpers.downloadFile(fileId);
         let streamEnded = false;
 
-        // Handle client disconnect
         req.on('close', () => {
             if (!streamEnded) {
                 downloadStream.destroy();
@@ -1059,9 +1091,22 @@ app.get('/admin.html', (req, res) => {
 
 // Start server
 async function startServer() {
-    // Force file-based storage to avoid MongoDB connection issues
-    useMongoDB = false;
-    initFileDatabase();
+    // Check for MongoDB URI
+    const mongoUri = process.env.MONGODB_URI;
+
+    if (mongoUri) {
+        // Try to connect to MongoDB
+        useMongoDB = await connectDB();
+
+        if (useMongoDB) {
+            // Seed database with default data
+            await seedDatabase();
+        } else {
+            initFileDatabase();
+        }
+    } else {
+        initFileDatabase();
+    }
 
     server.listen(PORT, '0.0.0.0', () => {
         console.log(`Server running on port ${PORT}`);
