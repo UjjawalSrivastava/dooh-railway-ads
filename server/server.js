@@ -590,79 +590,31 @@ app.get('/api/video/:fileId', async (req, res) => {
         const contentType = file.metadata?.contentType || 'video/mp4';
         const fileLength = file.length;
 
-        // Handle range requests for video seeking
-        const range = req.headers.range;
-        console.log('[Video] Range header:', range);
+        // NOTE: Disable range requests to avoid QUIC protocol errors with Cloudflare
+        // Always serve full file for reliability
+        console.log('[Video] Serving full file (range requests disabled for QUIC compatibility)');
+        res.set({
+            'Content-Length': fileLength,
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=3600'
+        });
 
-        if (range) {
-            const parts = range.replace(/bytes=/, '').split('-');
-            const start = parseInt(parts[0], 10);
-            const end = parts[1] ? parseInt(parts[1], 10) : fileLength - 1;
-            const chunksize = end - start + 1;
+        const downloadStream = gridfsHelpers.downloadFile(fileId);
+        console.log('[Video] Stream created for full file, piping...');
 
-            console.log('[Video] Range request:', { start, end, chunksize, fileLength });
-
-            res.status(206);
-            res.set({
-                'Content-Range': `bytes ${start}-${end}/${fileLength}`,
-                'Accept-Ranges': 'bytes',
-                'Content-Length': chunksize,
-                'Content-Type': contentType,
-                'Cache-Control': 'public, max-age=3600'
-            });
-
-            // Build download options - must include BOTH start AND end for GridFS
-            const downloadOptions = {};
-            if (start !== undefined && start > 0) {
-                downloadOptions.start = start;
+        downloadStream.on('error', (err) => {
+            console.error('[GridFS] Stream error:', err.message, err.stack);
+            if (!res.headersSent) {
+                res.status(500).json({ error: 'Stream error' });
+            } else {
+                res.destroy();
             }
-            // GridFS requires end to be set if start is set, default to file end
-            downloadOptions.end = (end !== undefined && end < fileLength - 1) ? end : fileLength - 1;
-            console.log('[Video] Download options:', downloadOptions);
+        });
+        downloadStream.on('end', () => {
+            console.log('[Video] Stream ended successfully');
+        });
 
-            const downloadStream = gridfsHelpers.downloadFile(fileId, downloadOptions);
-            console.log('[Video] Stream created, piping...');
-
-            downloadStream.on('error', (err) => {
-                console.error('[GridFS] Stream error:', err.message, err.stack);
-                if (!res.headersSent) {
-                    res.status(500).json({ error: 'Stream error' });
-                } else {
-                    // If headers already sent, destroy the response to end it
-                    res.destroy();
-                }
-            });
-            downloadStream.on('end', () => {
-                console.log('[Video] Stream ended successfully');
-            });
-            downloadStream.pipe(res);
-        } else {
-            // Full file request
-            console.log('[Video] Full file request, length:', fileLength);
-            res.set({
-                'Content-Length': fileLength,
-                'Content-Type': contentType,
-                'Accept-Ranges': 'bytes',
-                'Cache-Control': 'public, max-age=3600'
-            });
-
-            const downloadStream = gridfsHelpers.downloadFile(fileId);
-            console.log('[Video] Stream created for full file, piping...');
-
-            downloadStream.on('error', (err) => {
-                console.error('[GridFS] Stream error:', err.message, err.stack);
-                if (!res.headersSent) {
-                    res.status(500).json({ error: 'Stream error' });
-                } else {
-                    res.destroy();
-                }
-            });
-            downloadStream.on('end', () => {
-                console.log('[Video] Stream ended successfully');
-            });
-
-            downloadStream.pipe(res);
-        }
+        downloadStream.pipe(res);
     } catch (error) {
         console.error('[GridFS] Error streaming video:', error.message, error.stack);
         res.status(500).json({ error: 'Failed to stream video: ' + error.message });
