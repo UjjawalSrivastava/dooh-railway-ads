@@ -1,7 +1,7 @@
 /**
  * DOOH Platform - Production Multi-Screen Server
  * Railway Station Ad System with Multi-Display Support
- * MongoDB Persistence Enabled
+ * SQLite Persistence Enabled
  */
 
 const express = require('express');
@@ -12,11 +12,9 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const WebSocket = require('ws');
 const http = require('http');
-const mongoose = require('mongoose');
 require('dotenv').config();
 
-const { connectDB, dbHelpers, gridfsHelpers } = require('./db');
-const { seedDatabase } = require('./seed');
+const { connectDB, dbHelpers } = require('./db-sqlite');
 // const setupWizard = require('./setup');  // Temporarily disabled
 
 const app = express();
@@ -24,7 +22,6 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 3002;
-let useMongoDB = false;
 
 // Static locations data (in-memory config)
 const LOCATIONS = {
@@ -62,51 +59,7 @@ const LOCATIONS = {
     }
 };
 
-// File-based database paths (fallback when MongoDB unavailable)
-const DB_PATH = path.join(__dirname, '../data/database.json');
-const SCREENS_PATH = path.join(__dirname, '../data/screens.json');
-
-// Ensure data directory exists
-const dataDir = path.join(__dirname, '../data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-}
-
-// Initialize file-based database
-function initFileDatabase() {
-    if (!fs.existsSync(DB_PATH)) {
-        const initialData = {
-            locations: LOCATIONS,
-            bookings: [],
-            ads: [],
-            admin: { username: 'admin', password: 'admin123' }
-        };
-        fs.writeFileSync(DB_PATH, JSON.stringify(initialData, null, 2));
-    }
-
-    if (!fs.existsSync(SCREENS_PATH)) {
-        fs.writeFileSync(SCREENS_PATH, JSON.stringify({ screens: {} }, null, 2));
-    }
-}
-
-// File-based DB helpers
-function getFileDatabase() {
-    return JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-}
-
-function saveFileDatabase(data) {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
-}
-
-function getFileScreens() {
-    return JSON.parse(fs.readFileSync(SCREENS_PATH, 'utf8'));
-}
-
-function saveFileScreens(data) {
-    fs.writeFileSync(SCREENS_PATH, JSON.stringify(data, null, 2));
-}
-
-// Admin credentials (fallback)
+// Admin credentials
 const ADMIN_CREDS = {
     username: 'admin',
     password: 'admin123'
@@ -182,9 +135,7 @@ wss.on('connection', (ws, req) => {
         screens.set(screenId, { ws, station, platform, connectedAt: new Date() });
 
         // Update screen status in DB
-        if (useMongoDB) {
-            dbHelpers.updateScreen(screenId, { station, platform, status: 'online', connectedAt: new Date() });
-        }
+        dbHelpers.updateScreen(screenId, { station, platform, status: 'online', connectedAt: new Date() });
 
         sendPlaylistToScreen(screenId);
     }
@@ -192,9 +143,7 @@ wss.on('connection', (ws, req) => {
     ws.on('close', () => {
         if (screenId) {
             screens.delete(screenId);
-            if (useMongoDB) {
-                dbHelpers.updateScreen(screenId, { status: 'offline' });
-            }
+            dbHelpers.updateScreen(screenId, { status: 'offline' });
         }
     });
 });
@@ -227,13 +176,10 @@ async function getPlaylistForScreen(station, platform) {
     let bookings = [];
     let ads = [];
 
-    if (useMongoDB) {
-        const bookingsResult = await dbHelpers.getBookings();
-        const adsResult = await dbHelpers.getAds();
-        // Handle both old format (array) and new format (object with data)
-        bookings = bookingsResult.bookings || bookingsResult || [];
-        ads = adsResult.ads || adsResult || [];
-    }
+    const bookingsResult = await dbHelpers.getBookings({ limit: 1000 });
+    const adsResult = await dbHelpers.getAds({ limit: 1000 });
+    bookings = bookingsResult.bookings || [];
+    ads = adsResult.ads || [];
 
     // 1) Find active bookings
 
@@ -281,36 +227,21 @@ async function getPlaylistForScreen(station, platform) {
         let fileExists = false;
         let actualPath = ad.path;
 
-        // Check if this is a GridFS URL
-        const isGridFS = ad.path.startsWith('/api/video/');
+        try {
+            fileExists = fs.existsSync(videoPath);
+        } catch (e) {
+            fileExists = false;
+        }
 
-        if (isGridFS) {
-            const fileId = ad.gridfsFileId || ad.path.split('/').pop();
+        if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
+            const filename = path.basename(ad.path);
+            const oldPath = path.join(__dirname, '../uploads', filename);
             try {
-                if (gridfsHelpers.isAvailable() && fileId) {
-                    const file = await gridfsHelpers.findFile(fileId);
-                    fileExists = !!file;
+                if (fs.existsSync(oldPath)) {
+                    fileExists = true;
+                    actualPath = `/uploads/${filename}`;
                 }
-            } catch (e) {
-                fileExists = false;
-            }
-        } else {
-            try {
-                fileExists = fs.existsSync(videoPath);
-            } catch (e) {
-                fileExists = false;
-            }
-
-            if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
-                const filename = path.basename(ad.path);
-                const oldPath = path.join(__dirname, '../uploads', filename);
-                try {
-                    if (fs.existsSync(oldPath)) {
-                        fileExists = true;
-                        actualPath = `/uploads/${filename}`;
-                    }
-                } catch (e) {}
-            }
+            } catch (e) {}
         }
 
         if (!fileExists) {
@@ -375,10 +306,7 @@ function broadcastToScreens(station, platform, message) {
 // API Routes
 
 app.get('/api/screens', async (req, res) => {
-    let screensList = [];
-    if (useMongoDB) {
-        screensList = await dbHelpers.getScreens();
-    }
+    let screensList = await dbHelpers.getScreens();
 
     const screensWithDetails = screensList.map(screen => {
         const location = findLocationByScreenId(screen.screenId);
@@ -475,38 +403,15 @@ app.post('/api/upload', (req, res) => {
             const adId = uuidv4();
             const platformFolder = req.platformFolder || 'default';
 
-            let videoUrl;
-            let gridfsFileId = null;
-
-            // Upload to GridFS if MongoDB is available
-            if (useMongoDB && gridfsHelpers.isAvailable()) {
-                const fileBuffer = fs.readFileSync(req.file.path);
-                const gridFile = await gridfsHelpers.uploadFile(
-                    fileBuffer,
-                    req.file.filename,
-                    {
-                        originalName: req.file.originalname,
-                        platformFolder: platformFolder,
-                        adId: adId,
-                        contentType: req.file.mimetype
-                    }
-                );
-                gridfsFileId = gridFile._id.toString();
-                videoUrl = `/api/video/${gridfsFileId}`;
-
-                // Delete temp file after GridFS upload
-                fs.unlinkSync(req.file.path);
-            } else {
-                // Fallback to file system (ephemeral on Render)
-                videoUrl = `/uploads/${platformFolder}/${req.file.filename}`;
-            }
+            // Videos stored on disk only
+            const videoUrl = `/uploads/${platformFolder}/${req.file.filename}`;
 
             const adData = {
                 id: adId,
                 filename: req.file.filename,
                 originalName: req.file.originalname,
                 path: videoUrl,
-                gridfsFileId: gridfsFileId,
+                gridfsFileId: null,
                 platforms: req.platforms || ['default'],
                 platformFolder: platformFolder,
                 size: req.file.size,
@@ -514,9 +419,7 @@ app.post('/api/upload', (req, res) => {
                 duration: req.body.duration || 30
             };
 
-            if (useMongoDB) {
-                await dbHelpers.createAd(adData);
-            }
+            await dbHelpers.createAd(adData);
 
             // Simulate AI moderation
             setTimeout(() => runAIModeration(adId), 2000);
@@ -543,29 +446,11 @@ app.get('/api/video/:fileId', async (req, res) => {
             return res.status(400).json({ error: 'Video ID required' });
         }
 
-        let ad = null;
-        let diskFilePath = null;
+        // Find ad record by gridfsFileId (for backwards compatibility)
+        const { ads } = await dbHelpers.getAds({ limit: 1000 });
+        const ad = ads.find(a => a.gridfsFileId === fileId || a.path.includes(fileId));
 
-        // Try to find ad record by gridfsFileId (MongoDB or file-based)
-        try {
-            if (useMongoDB) {
-                // Get all ads and find by gridfsFileId
-                const { ads } = await dbHelpers.getAds({ limit: 1000 });
-                ad = ads.find(a => a.gridfsFileId === fileId);
-            } else {
-                // File-based lookup
-                const db = getFileDatabase();
-                ad = db.ads.find(a => a.gridfsFileId === fileId);
-            }
-        } catch (dbError) {
-            // Database error, try file-based fallback
-            try {
-                const db = getFileDatabase();
-                ad = db.ads.find(a => a.gridfsFileId === fileId);
-            } catch (e) {
-                // Ignore file-based errors too
-            }
-        }
+        let diskFilePath = null;
 
         // If ad found with path, try to serve from disk
         if (ad && ad.path) {
@@ -596,59 +481,15 @@ app.get('/api/video/:fileId', async (req, res) => {
             return fs.createReadStream(diskFilePath).pipe(res);
         }
 
-        // Fallback to GridFS if available
-        if (!useMongoDB || !gridfsHelpers.isAvailable()) {
-            return res.status(404).json({ error: 'Video not found' });
-        }
+        // Video not found
+        return res.status(404).json({ error: 'Video not found' });
 
-        if (!mongoose.Types.ObjectId.isValid(fileId)) {
-            return res.status(400).json({ error: 'Invalid video ID format' });
-        }
-
-        const file = await gridfsHelpers.findFile(fileId);
-        if (!file) {
-            return res.status(404).json({ error: 'Video not found in storage' });
-        }
-
-        const contentType = file.metadata?.contentType || 'video/mp4';
-        res.set({
-            'Content-Length': file.length,
-            'Content-Type': contentType,
-            'Cache-Control': 'public, max-age=3600',
-            'Accept-Ranges': 'bytes'
-        });
-
-        const downloadStream = gridfsHelpers.downloadFile(fileId);
-        let streamEnded = false;
-
-        req.on('close', () => {
-            if (!streamEnded) {
-                downloadStream.destroy();
-            }
-        });
-
-        downloadStream.on('error', (err) => {
-            streamEnded = true;
-            if (!res.headersSent) {
-                res.status(500).json({ error: 'Stream error' });
-            } else {
-                res.destroy();
-            }
-        });
-
-        downloadStream.on('end', () => {
-            streamEnded = true;
-        });
-
-        downloadStream.pipe(res);
     } catch (error) {
         res.status(500).json({ error: 'Failed to stream video: ' + error.message });
     }
 });
 
 async function runAIModeration(adId) {
-    if (!useMongoDB) return;
-
     await dbHelpers.updateAd(adId, { status: 'analyzing' });
 
     setTimeout(async () => {
@@ -668,10 +509,6 @@ async function runAIModeration(adId) {
 }
 
 app.get('/api/ad/:adId/status', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     const ad = await dbHelpers.getAdById(req.params.adId);
     if (!ad) {
         return res.status(404).json({ error: 'Ad not found' });
@@ -687,10 +524,6 @@ app.get('/api/ad/:adId/status', async (req, res) => {
 
 // Admin: Approve Ad
 app.post('/api/admin/ads/:adId/approve', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const ad = await dbHelpers.getAdById(req.params.adId);
         if (!ad) {
@@ -719,10 +552,6 @@ app.post('/api/admin/ads/:adId/approve', async (req, res) => {
 
 // Admin: Reject Ad
 app.post('/api/admin/ads/:adId/reject', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const ad = await dbHelpers.getAdById(req.params.adId);
         if (!ad) {
@@ -751,10 +580,6 @@ app.post('/api/admin/ads/:adId/reject', async (req, res) => {
 
 app.post('/api/book', async (req, res) => {
     try {
-        if (!useMongoDB) {
-            return res.status(503).json({ error: 'Database not available. Cannot create booking.' });
-        }
-
         let { adId, state, district, station, platforms, hours, startTime, date, primeTime,
                 customerName, customerEmail, customerPhone, priceDetails } = req.body;
 
@@ -847,10 +672,6 @@ app.post('/api/book', async (req, res) => {
 });
 
 app.post('/api/payment', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     const { bookingId, paymentMethod } = req.body;
     const booking = await dbHelpers.getBookingById(bookingId);
 
@@ -884,10 +705,6 @@ app.post('/api/payment', async (req, res) => {
 });
 
 app.get('/api/booking/:bookingId', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     const booking = await dbHelpers.getBookingById(req.params.bookingId);
     if (!booking) {
         return res.status(404).json({ error: 'Booking not found' });
@@ -923,19 +740,15 @@ app.post('/api/admin/login', (req, res) => {
 });
 
 app.get('/api/admin/bookings', async (req, res) => {
-    if (!useMongoDB) {
-        return res.json([]);
-    }
-
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
 
         const { bookings, total, totalPages } = await dbHelpers.getBookings({ page, limit });
-        const ads = await dbHelpers.getAds({ page: 1, limit: 1000 }); // Get all ads for mapping
+        const { ads } = await dbHelpers.getAds({ page: 1, limit: 1000 }); // Get all ads for mapping
 
         const bookingsWithAds = bookings.map(b => {
-            const ad = ads.ads.find(a => a.id === b.adId);
+            const ad = ads.find(a => a.id === b.adId);
             return { ...b, ad: ad ? { path: ad.path, status: ad.status } : null };
         });
 
@@ -950,10 +763,6 @@ app.get('/api/admin/bookings', async (req, res) => {
 });
 
 app.get('/api/admin/ads', async (req, res) => {
-    if (!useMongoDB) {
-        return res.json([]);
-    }
-
     try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
@@ -971,23 +780,10 @@ app.get('/api/admin/ads', async (req, res) => {
 
 // Delete individual ad
 app.delete('/api/admin/ads/:adId', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const ad = await dbHelpers.getAdById(req.params.adId);
         if (!ad) {
             return res.status(404).json({ error: 'Ad not found' });
-        }
-
-        // Delete from GridFS if gridfsFileId exists
-        if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
-            try {
-                await gridfsHelpers.deleteFile(ad.gridfsFileId);
-            } catch (err) {
-                console.error('[Admin] GridFS delete error:', err.message);
-            }
         }
 
         await dbHelpers.deleteAd(req.params.adId);
@@ -1000,29 +796,10 @@ app.delete('/api/admin/ads/:adId', async (req, res) => {
 
 // Bulk delete ads
 app.post('/api/admin/ads/bulk-delete', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const { ids } = req.body;
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
             return res.status(400).json({ error: 'No IDs provided' });
-        }
-
-        // Get ads to delete GridFS files
-        const ads = await dbHelpers.getAds({ page: 1, limit: 1000 });
-        const adsToDelete = ads.ads.filter(a => ids.includes(a.id));
-
-        // Delete GridFS files
-        for (const ad of adsToDelete) {
-            if (ad.gridfsFileId && gridfsHelpers.isAvailable()) {
-                try {
-                    await gridfsHelpers.deleteFile(ad.gridfsFileId);
-                } catch (err) {
-                    console.error('[Admin] GridFS delete error:', err.message);
-                }
-            }
         }
 
         const result = await dbHelpers.deleteAds(ids);
@@ -1035,10 +812,6 @@ app.post('/api/admin/ads/bulk-delete', async (req, res) => {
 
 // Delete individual booking
 app.delete('/api/admin/bookings/:bookingId', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const booking = await dbHelpers.getBookingById(req.params.bookingId);
         if (!booking) {
@@ -1055,10 +828,6 @@ app.delete('/api/admin/bookings/:bookingId', async (req, res) => {
 
 // Bulk delete bookings
 app.post('/api/admin/bookings/bulk-delete', async (req, res) => {
-    if (!useMongoDB) {
-        return res.status(503).json({ error: 'Database not available' });
-    }
-
     try {
         const { ids } = req.body;
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -1074,14 +843,6 @@ app.post('/api/admin/bookings/bulk-delete', async (req, res) => {
 });
 
 app.get('/api/admin/stats', async (req, res) => {
-    if (!useMongoDB) {
-        return res.json({
-            totalBookings: 0, totalRevenue: 0, pendingAds: 0,
-            approvedAds: 0, scheduledAds: 0, onlineScreens: 0,
-            activeStations: 2, totalPlatforms: 16, totalScreens: 0
-        });
-    }
-
     const stats = await dbHelpers.getStats();
     const screensList = await dbHelpers.getScreens();
 
@@ -1110,25 +871,17 @@ app.get('/admin.html', (req, res) => {
 
 // Start server
 async function startServer() {
-    // Check for MongoDB URI
-    const mongoUri = process.env.MONGODB_URI;
-
-    if (mongoUri) {
-        // Try to connect to MongoDB
-        useMongoDB = await connectDB();
-
-        if (useMongoDB) {
-            // Seed database with default data
-            await seedDatabase();
-        } else {
-            initFileDatabase();
-        }
-    } else {
-        initFileDatabase();
+    // Connect to SQLite
+    try {
+        await connectDB();
+    } catch (err) {
+        console.error('Failed to connect to SQLite:', err);
+        process.exit(1);
     }
 
     server.listen(PORT, '0.0.0.0', () => {
-        console.log(`Server running on port ${PORT}`);
+        console.log(`✅ Server running on port ${PORT}`);
+        console.log(`✅ SQLite database: ${DB_PATH}`);
     });
 }
 
