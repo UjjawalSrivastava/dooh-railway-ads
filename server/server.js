@@ -333,71 +333,9 @@ async function getPlaylistForScreen(station, platform) {
 
     console.log(`[Playlist] Built playlist with ${playlist.length} items`);
 
-    // 3) Fallback to any confirmed bookings for this platform
-    if (playlist.length === 0) {
-        console.log(`[Playlist] No active bookings, checking fallback`);
-
-        const platformBookings = bookings.filter(b =>
-            b.station === station &&
-            b.platforms.includes(platform) &&
-            b.paymentStatus === 'completed'
-        );
-
-        for (const b of platformBookings) {
-            const ad = ads.find(a => a.id === b.adId);
-            if (!ad || (ad.status !== 'approved' && ad.status !== 'scheduled')) continue;
-
-            let videoPath = path.join(__dirname, '..', ad.path);
-            let fileExists = false;
-            let actualPath = ad.path;
-
-            // Check if this is a GridFS URL
-            const isGridFS = ad.path.startsWith('/api/video/');
-
-            if (isGridFS) {
-                const fileId = ad.gridfsFileId || ad.path.split('/').pop();
-                try {
-                    if (gridfsHelpers.isAvailable() && fileId) {
-                        const file = await gridfsHelpers.findFile(fileId);
-                        fileExists = !!file;
-                    }
-                } catch (e) {
-                    fileExists = false;
-                }
-            } else {
-                try {
-                    fileExists = fs.existsSync(videoPath);
-                } catch (e) {
-                    fileExists = false;
-                }
-
-                if (!fileExists && ad.path.includes('/uploads/') && ad.path.split('/').length > 2) {
-                    const filename = path.basename(ad.path);
-                    const oldPath = path.join(__dirname, '../uploads', filename);
-                    try {
-                        if (fs.existsSync(oldPath)) {
-                            fileExists = true;
-                            actualPath = `/uploads/${filename}`;
-                        }
-                    } catch (e) {}
-                }
-            }
-
-            if (fileExists) {
-                playlist.push({
-                    bookingId: b.id,
-                    videoUrl: actualPath,
-                    duration: ad.duration || 30,
-                    customerName: b.customerName,
-                    startTime: b.startTime,
-                    hours: b.hours,
-                    fileExists: true
-                });
-            }
-        }
-
-        console.log(`[Playlist] Fallback added ${playlist.length} items`);
-    }
+    // 3) Fallback: Show default content when no active bookings
+    // REMOVED: Old fallback was showing videos before scheduled time
+    // Now only shows videos during their actual scheduled time slot
 
     return playlist;
 }
