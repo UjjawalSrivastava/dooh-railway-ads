@@ -79,15 +79,26 @@ const gridfsHelpers = {
     // Download file from GridFS
     downloadFile(fileId, options = {}) {
         try {
+            console.log('[GridFS] downloadFile called with fileId:', fileId);
+            console.log('[GridFS] downloadFile options:', options);
+
             const bucket = getGFSBucket();
-            if (!fileId || !mongoose.Types.ObjectId.isValid(fileId)) {
-                throw new Error('Invalid fileId format: ' + fileId);
+            console.log('[GridFS] Got bucket:', bucket ? 'yes' : 'no');
+
+            if (!fileId) {
+                throw new Error('fileId is null or undefined');
+            }
+            if (!mongoose.Types.ObjectId.isValid(fileId)) {
+                throw new Error('Invalid fileId format: ' + fileId + ' (length: ' + fileId.length + ')');
             }
             const objectId = new mongoose.Types.ObjectId(fileId);
-            console.log('[GridFS] Opening download stream for:', fileId);
+            console.log('[GridFS] Created ObjectId:', objectId);
+
             if (options.start !== undefined || options.end !== undefined) {
+                console.log('[GridFS] Opening download stream with options');
                 return bucket.openDownloadStream(objectId, options);
             }
+            console.log('[GridFS] Opening download stream without options');
             return bucket.openDownloadStream(objectId);
         } catch (err) {
             console.error('[GridFS] downloadFile error:', err.message);
