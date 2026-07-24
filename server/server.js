@@ -533,7 +533,7 @@ app.post('/api/upload', (req, res) => {
     });
 });
 
-// Video Streaming Endpoint - Serve from disk first, fallback to GridFS
+// Video Streaming Endpoint - Serve from disk using ad record path
 app.get('/api/video/:fileId', async (req, res) => {
     try {
         const fileId = req.params.fileId;
@@ -543,24 +543,33 @@ app.get('/api/video/:fileId', async (req, res) => {
             return res.status(400).json({ error: 'Video ID required' });
         }
 
-        // First try to serve from local disk (uploads folder)
-        // Find file by checking all platform subfolders
-        const uploadsDir = path.join(__dirname, '../uploads');
+        let ad = null;
         let diskFilePath = null;
 
-        if (fs.existsSync(uploadsDir)) {
-            const platformFolders = fs.readdirSync(uploadsDir);
-            for (const folder of platformFolders) {
-                const folderPath = path.join(uploadsDir, folder);
-                if (fs.statSync(folderPath).isDirectory()) {
-                    // Check for file with matching name/pattern
-                    const files = fs.readdirSync(folderPath);
-                    // Look for file that contains the fileId or matches pattern
-                    const matchedFile = files.find(f => f.includes(fileId) || f.startsWith(fileId.substring(0, 8)));
-                    if (matchedFile) {
-                        diskFilePath = path.join(folderPath, matchedFile);
-                        break;
-                    }
+        // Try to find ad record by gridfsFileId (MongoDB or file-based)
+        if (useMongoDB) {
+            // Get all ads and find by gridfsFileId
+            const { ads } = await dbHelpers.getAds({ limit: 1000 });
+            ad = ads.find(a => a.gridfsFileId === fileId);
+        } else {
+            // File-based lookup
+            const db = getFileDatabase();
+            ad = db.ads.find(a => a.gridfsFileId === fileId);
+        }
+
+        // If ad found with path, try to serve from disk
+        if (ad && ad.path) {
+            // Convert relative path to absolute
+            const possiblePath = path.join(__dirname, '..', ad.path);
+            if (fs.existsSync(possiblePath)) {
+                diskFilePath = possiblePath;
+            } else {
+                // Try alternative: uploads folder + platform + filename
+                const platformFolder = ad.platformFolder || 'default';
+                const filename = path.basename(ad.path);
+                const altPath = path.join(__dirname, '../uploads', platformFolder, filename);
+                if (fs.existsSync(altPath)) {
+                    diskFilePath = altPath;
                 }
             }
         }
