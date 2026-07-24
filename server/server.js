@@ -577,7 +577,10 @@ app.get('/api/video/:fileId', async (req, res) => {
                 'Cache-Control': 'public, max-age=3600'
             });
 
-            const downloadOptions = { start, end: end < fileLength - 1 ? end : undefined };
+            // Build download options - only include end if needed
+            const downloadOptions = {};
+            if (start !== undefined) downloadOptions.start = start;
+            if (end !== undefined && end < fileLength - 1) downloadOptions.end = end;
             console.log('[Video] Download options:', downloadOptions);
 
             const downloadStream = gridfsHelpers.downloadFile(fileId, downloadOptions);
