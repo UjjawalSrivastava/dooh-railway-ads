@@ -770,6 +770,14 @@
             document.getElementById('ad-customer').textContent = ad.customerName || 'Advertisement';
             document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • ${index + 1}/${currentPlaylist.length}`;
 
+            // Update duration display once video metadata is loaded
+            player.onloadedmetadata = () => {
+                if (player.duration && isFinite(player.duration)) {
+                    const actualDuration = Math.ceil(player.duration);
+                    document.getElementById('ad-meta').textContent = `${actualDuration} sec • ${index + 1}/${currentPlaylist.length}`;
+                }
+            };
+
             const tryPlay = () => {
                 // Always start muted for autoplay to work
                 player.muted = true;
@@ -784,8 +792,18 @@
                         // Show unmute button - user must click to enable audio
                         showUnmuteButton();
 
+                        // Get actual video duration if available, else use ad.duration
+                        const getDuration = () => {
+                            if (player.duration && isFinite(player.duration)) {
+                                return Math.ceil(player.duration);
+                            }
+                            return ad.duration || 30;
+                        };
+
+                        const duration = getDuration() * 1000;
+                        console.log(`Playing for ${getDuration()}s, next ad scheduled`);
+
                         // Schedule next ad after this ad's duration
-                        const duration = (ad.duration || 30) * 1000;
                         adTimer = setTimeout(() => {
                             const nextIndex = (index + 1) % currentPlaylist.length;
                             playAd(nextIndex);
