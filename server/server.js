@@ -385,6 +385,9 @@ app.post('/api/upload', (req, res) => {
             // Videos stored on disk only
             const videoUrl = `/uploads/${platformFolder}/${req.file.filename}`;
 
+            console.log('[DEBUG] Upload - Received duration:', req.body.duration, 'from body');
+            console.log('[DEBUG] Upload - File:', req.file.originalname, 'size:', req.file.size);
+
             const adData = {
                 id: adId,
                 filename: req.file.filename,
@@ -397,6 +400,8 @@ app.post('/api/upload', (req, res) => {
                 status: 'approved',
                 duration: req.body.duration || 30
             };
+
+            console.log('[DEBUG] Upload - Storing ad with duration:', adData.duration);
 
             await dbHelpers.createAd(adData);
 

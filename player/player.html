@@ -873,6 +873,7 @@
                 adActualDurations = {};
 
                 // Pre-fetch all video durations in background
+                console.log('[DEBUG] Playlist received:', realAds.map(a => ({id: a.adId, duration: a.duration})));
                 prefetchAllDurations(realAds);
 
                 updateQueueDisplay();
@@ -888,13 +889,20 @@
 
         // Pre-fetch durations for all videos in playlist
         async function prefetchAllDurations(ads) {
+            console.log('[DEBUG] Prefetching durations for', ads.length, 'ads:', ads.map(a => ({id: a.adId, duration: a.duration})));
             const promises = ads.map(async (ad) => {
                 // Skip if already fetched
-                if (adActualDurations[ad.adId]) return;
+                if (adActualDurations[ad.adId]) {
+                    console.log('[DEBUG] Prefetch - already have duration for', ad.adId, ':', adActualDurations[ad.adId]);
+                    return;
+                }
+
+                console.log('[DEBUG] Prefetch - ad:', ad.adId, 'server duration:', ad.duration);
 
                 // Try to get from server duration first (if accurate)
                 if (ad.duration && ad.duration !== 30) {
                     adActualDurations[ad.adId] = ad.duration;
+                    console.log('[DEBUG] Prefetch - using server duration:', ad.duration, 'for', ad.adId);
                     return;
                 }
 
@@ -909,8 +917,12 @@
 
                     tempVideo.onloadedmetadata = () => {
                         if (tempVideo.duration && isFinite(tempVideo.duration)) {
-                            adActualDurations[ad.adId] = Math.ceil(tempVideo.duration);
+                            const actualDuration = Math.ceil(tempVideo.duration);
+                            adActualDurations[ad.adId] = actualDuration;
+                            console.log('[DEBUG] Prefetch - detected actual duration:', actualDuration, 'for', ad.adId);
                             updateQueueDisplay(); // Refresh UI with actual duration
+                        } else {
+                            console.log('[DEBUG] Prefetch - invalid duration for', ad.adId);
                         }
                         tempVideo.removeAttribute('src');
                         tempVideo.load();
@@ -918,12 +930,14 @@
                     };
 
                     tempVideo.onerror = () => {
+                        console.log('[DEBUG] Prefetch - error loading video for', ad.adId);
                         // Keep default duration on error
                         resolve();
                     };
 
                     // Timeout after 5 seconds
                     setTimeout(() => {
+                        console.log('[DEBUG] Prefetch - timeout for', ad.adId);
                         tempVideo.removeAttribute('src');
                         tempVideo.load();
                         resolve();
@@ -932,6 +946,7 @@
             });
 
             await Promise.all(promises);
+            console.log('[DEBUG] Prefetch complete. All durations:', adActualDurations);
             updateQueueDisplay(); // Final refresh
         }
 

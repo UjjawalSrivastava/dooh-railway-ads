@@ -1178,9 +1178,17 @@
 
             uploadedVideo = file;
 
-            // Show preview
+            // Show preview and detect actual duration
             const video = document.getElementById('preview-video');
-            video.src = URL.createObjectURL(file);
+            const videoUrl = URL.createObjectURL(file);
+            video.src = videoUrl;
+
+            // Wait for duration to be available
+            video.onloadedmetadata = () => {
+                const actualDuration = Math.ceil(video.duration);
+                console.log('[DEBUG] Detected video duration:', actualDuration, 'seconds');
+                uploadedVideo.duration = actualDuration;
+            };
 
             document.getElementById('preview-filename').textContent = file.name;
             document.getElementById('preview-filesize').textContent = formatFileSize(file.size);
@@ -1210,7 +1218,10 @@
                 try {
                     const formData = new FormData();
                     formData.append('video', file);
-                    formData.append('duration', 30);
+                    // Use actual duration if detected, else default 30
+                    const actualDuration = file.duration || 30;
+                    console.log('[DEBUG] Uploading with duration:', actualDuration);
+                    formData.append('duration', actualDuration);
 
                     // Create XMLHttpRequest for progress tracking
                     const xhr = new XMLHttpRequest();
