@@ -1078,6 +1078,7 @@
         }
 
         function playAd(index) {
+            console.log('[DEBUG] playAd called with index:', index, 'currentPlaylist length:', currentPlaylist.length);
             if (currentPlaylist.length === 0) {
                 showDefaultContent();
                 return;
@@ -1099,9 +1100,17 @@
             // On Local:  origin = "http://localhost:3002"
             const videoUrl = `${window.location.origin}${ad.videoUrl}`;
 
+            console.log('[DEBUG] Current player.src:', player.src);
+            console.log('[DEBUG] New videoUrl:', videoUrl);
+            console.log('[DEBUG] URLs match:', player.src === videoUrl);
+
             if (player.src !== videoUrl) {
+                console.log('[DEBUG] Setting new video source');
                 player.src = videoUrl;
                 player.load();
+            } else {
+                console.log('[DEBUG] Same video, seeking to beginning');
+                player.currentTime = 0;
             }
 
             player.classList.add('active');
@@ -1430,6 +1439,7 @@
 
         // When video ends naturally, immediately play next (backup to timer)
         player.addEventListener('ended', () => {
+            console.log('[DEBUG] Video ended event fired. Current index:', currentAdIndex, 'Playlist length:', currentPlaylist.length);
             if (adTimer) {
                 clearTimeout(adTimer);
                 adTimer = null;
@@ -1437,9 +1447,11 @@
             const nextIndex = currentAdIndex + 1;
             if (nextIndex >= currentPlaylist.length) {
                 // Loop back to first video for continuous rotation
+                console.log('[DEBUG] Looping back to first video');
                 currentAdIndex = 0;
                 playAd(0);
             } else {
+                console.log('[DEBUG] Playing next video at index:', nextIndex);
                 playAd(nextIndex);
             }
         });
