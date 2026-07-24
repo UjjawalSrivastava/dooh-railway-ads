@@ -581,7 +581,13 @@ app.get('/api/video/:fileId', async (req, res) => {
                 console.error('[GridFS] Stream error:', err.message, err.stack);
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Stream error' });
+                } else {
+                    // If headers already sent, destroy the response to end it
+                    res.destroy();
                 }
+            });
+            downloadStream.on('end', () => {
+                console.log('[Video] Stream ended successfully');
             });
             downloadStream.pipe(res);
         } else {
@@ -601,7 +607,12 @@ app.get('/api/video/:fileId', async (req, res) => {
                 console.error('[GridFS] Stream error:', err.message, err.stack);
                 if (!res.headersSent) {
                     res.status(500).json({ error: 'Stream error' });
+                } else {
+                    res.destroy();
                 }
+            });
+            downloadStream.on('end', () => {
+                console.log('[Video] Stream ended successfully');
             });
 
             downloadStream.pipe(res);

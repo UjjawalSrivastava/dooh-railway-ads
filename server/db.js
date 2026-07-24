@@ -80,7 +80,7 @@ const gridfsHelpers = {
     downloadFile(fileId, options = {}) {
         try {
             const bucket = getGFSBucket();
-            if (!mongoose.Types.ObjectId.isValid(fileId)) {
+            if (!fileId || !mongoose.Types.ObjectId.isValid(fileId)) {
                 throw new Error('Invalid fileId format: ' + fileId);
             }
             const objectId = new mongoose.Types.ObjectId(fileId);

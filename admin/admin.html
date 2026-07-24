@@ -1291,7 +1291,17 @@
             }
 
             tbody.innerHTML = ads.map(ad => {
-                const videoUrl = ad.gridfsFileId ? `/api/video/${ad.gridfsFileId}` : ad.path;
+                // Build video URL - prefer gridfsFileId, fallback to extracting from path
+                let videoUrl;
+                if (ad.gridfsFileId) {
+                    videoUrl = `/api/video/${ad.gridfsFileId}`;
+                } else if (ad.path && ad.path.includes('/api/video/')) {
+                    // Extract fileId from path like /api/video/FILEID
+                    const match = ad.path.match(/\/api\/video\/([^\/\s]+)/);
+                    videoUrl = match ? `/api/video/${match[1]}` : ad.path;
+                } else {
+                    videoUrl = ad.path || '#';
+                }
                 return `
                     <tr data-ad-id="${ad.id}">
                         <td><input type="checkbox" class="checkbox ad-checkbox" value="${ad.id}" onchange="toggleAdSelection('${ad.id}')"></td>
