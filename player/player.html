@@ -676,7 +676,7 @@
             document.getElementById('ad-meta').textContent = `${ad.duration || 30} sec • ${index + 1}/${currentPlaylist.length}`;
 
             const tryPlay = () => {
-                // Start muted for autoplay policy, then try to unmute
+                // Always start muted for autoplay to work
                 player.muted = true;
 
                 player.play()
@@ -684,18 +684,10 @@
                         isPlaying = true;
                         currentAdIndex = index;
                         updateQueueDisplay();
-                        console.log('Video playing successfully');
+                        console.log('Video playing successfully (muted)');
 
-                        // Try to unmute after successful autoplay
-                        setTimeout(() => {
-                            player.muted = false;
-                            console.log('Attempted to unmute video');
-                            // Check if unmute succeeded
-                            if (player.muted) {
-                                console.log('Unmute blocked by browser - user interaction needed');
-                                showAudioHint();
-                            }
-                        }, 100);
+                        // Show unmute button - user must click to enable audio
+                        showUnmuteButton();
 
                         // Schedule next ad after this ad's duration
                         const duration = (ad.duration || 30) * 1000;
@@ -736,33 +728,55 @@
             clickPrompt.onclick = () => {
                 player.play().then(() => {
                     isPlaying = true;
+                    showUnmuteButton(); // Show unmute after play starts
                 }).catch(e => console.error(e));
                 clickPrompt.remove();
             };
             document.querySelector('.display-container').appendChild(clickPrompt);
         }
 
+        // Persistent unmute button - user must click to enable audio
+        function showUnmuteButton() {
+            // Remove existing button if any
+            const existing = document.getElementById('unmute-btn');
+            if (existing) existing.remove();
+
+            const btn = document.createElement('button');
+            btn.id = 'unmute-btn';
+            btn.innerHTML = '🔇 Tap to unmute';
+            btn.style.cssText = `
+                position: absolute;
+                bottom: 140px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(239, 68, 68, 0.9);
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 8px;
+                font-size: 1rem;
+                font-weight: 600;
+                cursor: pointer;
+                z-index: 150;
+                animation: pulse 2s infinite;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            `;
+
+            btn.onclick = () => {
+                player.muted = false;
+                btn.innerHTML = '🔊 Audio on';
+                btn.style.background = 'rgba(16, 185, 129, 0.9)';
+                setTimeout(() => btn.remove(), 2000);
+                updateMuteIndicator();
+            };
+
+            document.querySelector('.display-container').appendChild(btn);
+            updateMuteIndicator();
+        }
+
         function showAudioHint() {
-            // Show brief hint that audio requires interaction
-            const hint = document.createElement('div');
-            hint.id = 'audio-hint';
-            hint.style.cssText = 'position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:white;padding:0.5rem 1rem;border-radius:0.5rem;font-size:0.875rem;z-index:100;animation:fadeInOut 5s forwards;';
-            hint.innerHTML = '🔇 Click anywhere to enable audio';
-            document.querySelector('.display-container').appendChild(hint);
-
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                const h = document.getElementById('audio-hint');
-                if (h) h.remove();
-            }, 5000);
-
-            // Remove on first click
-            document.addEventListener('click', function removeHint() {
-                player.muted = false; // Try to unmute on user interaction
-                const h = document.getElementById('audio-hint');
-                if (h) h.remove();
-                document.removeEventListener('click', removeHint);
-            }, { once: true });
+            // Legacy - now handled by showUnmuteButton
+            showUnmuteButton();
         }
 
         function showDefaultContent() {
@@ -771,6 +785,10 @@
                 clearTimeout(adTimer);
                 adTimer = null;
             }
+            // Remove unmute button if exists
+            const unmuteBtn = document.getElementById('unmute-btn');
+            if (unmuteBtn) unmuteBtn.remove();
+
             // Clear any pending canplay handler to prevent stale callbacks
             player.oncanplay = null;
             player.classList.remove('active');
