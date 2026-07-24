@@ -214,12 +214,13 @@ async function getPlaylistForScreen(station, platform) {
     });
 
 
-    // 2) Build weighted playlist - each ad plays based on remaining time / ad duration
+    // 2) Build sequential playlist - each unique ad plays once in rotation
     const playlist = [];
+    const uniqueAds = new Set();
 
     for (const b of activeBookings) {
         const ad = ads.find(a => a.id === b.adId);
-        if (!ad) {
+        if (!ad || uniqueAds.has(ad.id)) {
             continue;
         }
 
@@ -248,46 +249,24 @@ async function getPlaylistForScreen(station, platform) {
             continue;
         }
 
-        // Calculate remaining time for this booking
-        const startTimeParts = String(b.startTime).split(':');
-        const startHour = parseInt(startTimeParts[0]) || 0;
-        const startMinute = parseInt(startTimeParts[1]) || 0;
-        const startTimeMinutes = startHour * 60 + startMinute;
-        const endTimeMinutes = startTimeMinutes + (parseFloat(b.hours) * 60);
-
-        const remainingMinutes = endTimeMinutes - currentTimeMinutes;
-        const remainingSeconds = remainingMinutes * 60;
-
-        // Calculate how many times this ad should play
+        // Add each unique ad once for sequential rotation
+        uniqueAds.add(ad.id);
         const adDuration = ad.duration || 30;
-        const playCount = Math.floor(remainingSeconds / adDuration);
 
-
-        // Add ad to playlist 'playCount' times
-        for (let i = 0; i < playCount; i++) {
-            playlist.push({
-                bookingId: b.id,
-                videoUrl: actualPath,
-                duration: adDuration,
-                customerName: b.customerName,
-                adId: ad.id
-            });
-        }
+        playlist.push({
+            bookingId: b.id,
+            videoUrl: actualPath,
+            duration: adDuration,
+            customerName: b.customerName,
+            adId: ad.id
+        });
     }
 
-    // Shuffle playlist for fair rotation
-    for (let i = playlist.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [playlist[i], playlist[j]] = [playlist[j], playlist[i]];
-    }
+    // No shuffle - keep sequential order for round-robin rotation
+    // Player will loop through playlist automatically
 
-
-    // Log summary per ad
-    const adCounts = {};
-    playlist.forEach(item => {
-        adCounts[item.adId] = (adCounts[item.adId] || 0) + 1;
-    });
-    Object.entries(adCounts).forEach(([adId, count]) => {
+    // Log playlist
+    playlist.forEach((item, i) => {
     });
 
     return playlist;
